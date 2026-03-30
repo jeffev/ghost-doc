@@ -1,6 +1,6 @@
 {
   "name": "@ghost-doc/shared-types",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Ghost Doc shared Zod schema and TypeScript types for the TraceEvent wire format.",
   "keywords": [
     "tracing",
