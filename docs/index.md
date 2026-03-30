@@ -13,7 +13,10 @@ hero:
       text: Get Started
       link: /guide/getting-started
     - theme: alt
-      text: View on GitHub
+      text: Live Demo
+      link: /demo.html
+    - theme: alt
+      text: GitHub
       link: https://github.com/jeffev/ghost-doc
 
 features:

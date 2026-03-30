@@ -28,6 +28,7 @@ export default defineConfig({
     nav: [
       { text: "Guide", link: "/guide/getting-started" },
       { text: "API", link: "/api/trace-event" },
+      { text: "Live Demo", link: "/demo.html", target: "_blank" },
       { text: "GitHub", link: "https://github.com/jeffev/ghost-doc" },
       {
         text: "npm",
