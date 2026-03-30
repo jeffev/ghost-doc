@@ -1,0 +1,6 @@
+dist/
+node_modules/
+schema.json
+pnpm-lock.yaml
+*.pyc
+__pycache__/

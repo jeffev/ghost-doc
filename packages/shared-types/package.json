@@ -1,0 +1,43 @@
+{
+  "name": "@ghost-doc/shared-types",
+  "version": "0.1.0",
+  "description": "Ghost Doc shared Zod schema and TypeScript types for the TraceEvent wire format.",
+  "keywords": ["tracing", "schema", "zod", "typescript"],
+  "license": "MIT",
+  "homepage": "https://github.com/your-org/ghost-doc#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/ghost-doc.git",
+    "directory": "packages/shared-types"
+  },
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "source": "./src/index.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./schema.json": "./schema.json"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist", "schema.json"],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --clean",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "generate-schema": "tsx src/generate-json-schema.ts"
+  },
+  "dependencies": {
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsup": "^8.5.1",
+    "tsx": "^4.21.0",
+    "vitest": "^2.0.0",
+    "zod-to-json-schema": "^3.23.0"
+  }
+}

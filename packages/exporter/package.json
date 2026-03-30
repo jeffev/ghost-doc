@@ -1,0 +1,30 @@
+{
+  "name": "@ghost-doc/exporter",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --clean --shims",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@ghost-doc/shared-types": "workspace:*",
+    "@notionhq/client": "^2.2.15"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsup": "^8.5.1",
+    "vitest": "^2.0.0",
+    "typescript": "^6.0.2"
+  }
+}

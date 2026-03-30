@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint-typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "10"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+      - run: pnpm install --frozen-lockfile
+      - name: Build shared-types (required for typecheck in consuming packages)
+        run: pnpm --filter @ghost-doc/shared-types build
+      - run: pnpm lint
+      - run: pnpm typecheck
+
+  test-js:
+    runs-on: ubuntu-latest
+    needs: lint-typecheck
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "10"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+      - run: pnpm install --frozen-lockfile
+      - name: Generate JSON schema (used by tests that validate schema.json)
+        run: pnpm --filter @ghost-doc/shared-types generate-schema
+      - name: Run JS tests (Vitest resolves shared-types from source, no build needed)
+        run: pnpm test --filter @ghost-doc/agent-js --filter @ghost-doc/shared-types
+
+  test-python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e "packages/agent-python[dev]"
+      - run: pytest packages/agent-python/tests -v --tb=short

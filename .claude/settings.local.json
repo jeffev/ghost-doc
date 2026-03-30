@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm --version)",
+      "Bash(pnpm --version)",
+      "Bash(pnpm info:*)",
+      "Bash(pip index:*)",
+      "Bash(pnpm install:*)",
+      "Bash(pnpm approve-builds:*)",
+      "Bash(echo {\"\"onlyBuiltDependencies\"\":[\"\"esbuild\"\"]})",
+      "Bash(pnpm build:*)",
+      "Bash(pnpm typecheck:*)",
+      "Bash(pnpm test:*)",
+      "Bash(cat d:/Ghost_Doc/packages/shared-types/src/*.ts)",
+      "Bash(pnpm --filter @ghost-doc/exporter typecheck)",
+      "Bash(pnpm --filter @ghost-doc/hub typecheck)",
+      "Bash(pnpm --filter @ghost-doc/exporter build)",
+      "Bash(pnpm --filter @ghost-doc/exporter test)",
+      "Bash(pnpm --filter @ghost-doc/hub test)",
+      "Bash(pnpm --filter @ghost-doc/agent-js build)",
+      "Bash(pnpm --filter @ghost-doc/sample-app typecheck)",
+      "Bash(pnpm demo:build)",
+      "Bash(pnpm --filter @ghost-doc/hub build)",
+      "Bash(pnpm --filter @ghost-doc/sample-app build)",
+      "Bash(pnpm --filter @ghost-doc/dashboard exec tsc --noEmit)",
+      "Bash(pnpm --filter @ghost-doc/agent-js exec tsc --noEmit)",
+      "Bash(pnpm --filter @ghost-doc/shared-types build)",
+      "Bash(xargs grep:*)",
+      "Bash(npx tsc:*)",
+      "Bash(find d:/Ghost_Doc/packages/dashboard/src -name *.ts -o -name *.tsx)",
+      "Bash(grep -n \"description\\\\|docstring\\\\|__doc__\" d:/Ghost_Doc/packages/agent-python/ghost_doc_agent/*.py)",
+      "Bash(grep -r \"\"version\"\" d:/Ghost_Doc/packages/*/package.json d:/Ghost_Doc/package.json)"
+    ]
+  }
+}

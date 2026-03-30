@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ghost Doc — SampleApp</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #0f1117;
+    color: #e2e8f0;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 16px;
+    height: 52px;
+    background: #1a202c;
+    border-bottom: 1px solid #2d3748;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+
+  header h1 {
+    font-size: 14px;
+    font-weight: 700;
+    color: #90cdf4;
+    white-space: nowrap;
+  }
+
+  header .meta {
+    font-size: 11px;
+    color: #718096;
+    white-space: nowrap;
+  }
+
+  .spacer { flex: 1; }
+
+  header input[type="search"] {
+    background: #2d3748;
+    border: 1px solid #4a5568;
+    border-radius: 6px;
+    color: #e2e8f0;
+    font-size: 13px;
+    padding: 5px 10px;
+    width: 200px;
+    outline: none;
+  }
+  header input[type="search"]:focus { border-color: #63b3ed; }
+  header input[type="search"]::placeholder { color: #718096; }
+
+  .btn-group { display: flex; gap: 4px; }
+
+  .ctrl-btn {
+    background: #2d3748;
+    border: 1px solid #4a5568;
+    border-radius: 5px;
+    color: #a0aec0;
+    cursor: pointer;
+    font-size: 11px;
+    padding: 4px 9px;
+    transition: background .15s, color .15s, border-color .15s;
+  }
+  .ctrl-btn:hover { background: #4a5568; color: #e2e8f0; }
+  .ctrl-btn.active { background: #2b6cb0; border-color: #63b3ed; color: #fff; }
+
+  /* ── Main layout ── */
+  .workspace {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ── Legend sidebar ── */
+  #legend {
+    width: 170px;
+    flex-shrink: 0;
+    background: #1a202c;
+    border-right: 1px solid #2d3748;
+    padding: 12px 8px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  #legend .legend-title {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: #718096;
+    padding: 0 4px 6px;
+  }
+
+  .legend-btn {
+    background: transparent;
+    border: 1.5px solid var(--c);
+    border-radius: 5px;
+    color: var(--c);
+    cursor: pointer;
+    font-size: 11px;
+    padding: 5px 8px;
+    text-align: left;
+    transition: background .15s, color .15s;
+    width: 100%;
+  }
+  .legend-btn:hover { background: var(--c); color: #fff; }
+  .legend-btn.active { background: var(--c); color: #fff; }
+
+  .legend-btn .badge {
+    float: right;
+    background: rgba(0,0,0,.25);
+    border-radius: 10px;
+    font-size: 10px;
+    padding: 0 5px;
+  }
+
+  /* ── Cytoscape canvas ── */
+  #cy {
+    flex: 1;
+    background: #0f1117;
+  }
+
+  /* ── Detail panel ── */
+  #detail {
+    width: 320px;
+    flex-shrink: 0;
+    background: #1a202c;
+    border-left: 1px solid #2d3748;
+    overflow-y: auto;
+    transform: translateX(100%);
+    transition: transform .2s ease;
+    display: flex;
+    flex-direction: column;
+  }
+  #detail.open { transform: translateX(0); }
+
+  #detail-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid #2d3748;
+    gap: 8px;
+  }
+
+  #detail-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #fff;
+    word-break: break-all;
+  }
+
+  #detail-close {
+    background: none;
+    border: none;
+    color: #718096;
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+    padding: 2px 4px;
+    flex-shrink: 0;
+  }
+  #detail-close:hover { color: #e2e8f0; }
+
+  #detail-body {
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    flex: 1;
+  }
+
+  .detail-section-title {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: #718096;
+    margin-bottom: 6px;
+  }
+
+  .kv-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 4px 10px;
+    font-size: 12px;
+  }
+  .kv-key { color: #718096; white-space: nowrap; }
+  .kv-val { color: #e2e8f0; word-break: break-all; }
+
+  .badge-pill {
+    display: inline-block;
+    border-radius: 99px;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+  }
+  .badge-error { background: #fc8181; color: #1a202c; }
+  .badge-anomaly { background: #f6ad55; color: #1a202c; }
+
+  .connection-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .conn-item {
+    background: #2d3748;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 11px;
+    padding: 5px 9px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #a0aec0;
+    transition: background .12s, color .12s;
+  }
+  .conn-item:hover { background: #4a5568; color: #e2e8f0; }
+  .conn-item .conn-arrow { color: #718096; font-size: 10px; }
+
+  .error-box {
+    background: #2d1818;
+    border: 1px solid #fc8181;
+    border-radius: 6px;
+    padding: 10px;
+  }
+  .error-type { color: #fc8181; font-size: 11px; font-weight: 700; margin-bottom: 4px; }
+  .error-msg { color: #fed7d7; font-size: 11px; margin-bottom: 6px; line-height: 1.4; }
+  .error-stack {
+    color: #a0aec0;
+    font-family: monospace;
+    font-size: 10px;
+    line-height: 1.4;
+    max-height: 120px;
+    overflow-y: auto;
+    white-space: pre;
+  }
+
+  /* ── Stats bar ── */
+  #stats-bar {
+    height: 28px;
+    background: #1a202c;
+    border-top: 1px solid #2d3748;
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+    gap: 16px;
+    font-size: 11px;
+    color: #718096;
+    flex-shrink: 0;
+  }
+  #stats-bar span { color: #a0aec0; }
+
+  /* ── Empty state ── */
+  .empty-hint {
+    text-align: center;
+    color: #4a5568;
+    font-size: 13px;
+    padding: 40px 20px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Ghost Doc — SampleApp</h1>
+  <span class="meta">
+    576 spans &bull; 28 functions &bull; 2026-03-30T14:05:41.779Z
+  </span>
+  <div class="spacer"></div>
+  <input type="search" id="search-input" placeholder="Search functions…" />
+  <div class="btn-group">
+    <button class="ctrl-btn active" id="btn-all" title="Show all nodes">All</button>
+    <button class="ctrl-btn" id="btn-errors" title="Highlight error nodes">Errors</button>
+    <button class="ctrl-btn" id="btn-anomalies" title="Highlight anomaly nodes">Anomalies</button>
+  </div>
+  <div class="btn-group">
+    <button class="ctrl-btn active" id="btn-layout-dag" title="Hierarchical layout">Hierarchy</button>
+    <button class="ctrl-btn" id="btn-layout-force" title="Force-directed layout">Force</button>
+  </div>
+  <div class="btn-group">
+    <button class="ctrl-btn active" id="btn-edge-labels" title="Toggle edge labels">Labels</button>
+    <button class="ctrl-btn" id="btn-fit" title="Fit graph to screen">Fit</button>
+  </div>
+</header>
+
+<div class="workspace">
+  <!-- Service legend -->
+  <nav id="legend">
+    <div class="legend-title">Services</div>
+    <button class="legend-btn active" data-service="__all__" style="--c:#4a5568">All services</button>
+    <button class="legend-btn" data-service="Handlers" style="--c:#3182ce">Handlers</button>
+      <button class="legend-btn" data-service="AuditService" style="--c:#667eea">AuditService</button>
+      <button class="legend-btn" data-service="CacheService" style="--c:#319795">CacheService</button>
+      <button class="legend-btn" data-service="DatabaseService" style="--c:#4a5568">DatabaseService</button>
+      <button class="legend-btn" data-service="InventoryService" style="--c:#38a169">InventoryService</button>
+      <button class="legend-btn" data-service="NotificationService" style="--c:#ed8936">NotificationService</button>
+      <button class="legend-btn" data-service="OrderService" style="--c:#d69e2e">OrderService</button>
+      <button class="legend-btn" data-service="PaymentService" style="--c:#e53e3e">PaymentService</button>
+      <button class="legend-btn" data-service="UserService" style="--c:#805ad5">UserService</button>
+  </nav>
+
+  <!-- Graph canvas -->
+  <div id="cy"></div>
+
+  <!-- Detail panel -->
+  <aside id="detail">
+    <div id="detail-header">
+      <div id="detail-title">Select a node</div>
+      <button id="detail-close" title="Close">×</button>
+    </div>
+    <div id="detail-body">
+      <div class="empty-hint">Click any function node to inspect it.</div>
+    </div>
+  </aside>
+</div>
+
+<div id="stats-bar">
+  <span id="stat-visible">Showing <span id="stat-count">28</span> / 28 functions</span>
+  <span id="stat-selected"></span>
+</div>
+
+<!-- Cytoscape from CDN -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.30.2/cytoscape.min.js"></script>
+
+<script>
+// ── Embedded data ──────────────────────────────────────────────────────────
+const PALETTE  = {"Handlers":"#3182ce","UserService":"#805ad5","OrderService":"#d69e2e","InventoryService":"#38a169","PaymentService":"#e53e3e","NotificationService":"#ed8936","DatabaseService":"#4a5568","CacheService":"#319795","AuditService":"#667eea","SearchService":"#48bb78","Other":"#718096"};
+const CY_NODES = [{"data":{"id":"sample-ecommerce::handleRefund","label":"handleRefund","fullName":"handleRefund","service":"Handlers","agentId":"sample-ecommerce","file":"D:\\Ghost_Doc\\packages\\sample-app\\src\\index.ts","line":132,"avgDuration":200.71,"p95Duration":200.71,"callCount":1,"hasError":false,"hasAnomaly":false,"color":"#3182ce"}},{"data":{"id":"sample-ecommerce::AuditService.log","label":"log","fullName":"AuditService.log","service":"AuditService","agentId":"sample-ecommerce","file":"D:\\Ghost_Doc\\packages\\sample-app\\src\\services\\AuditService.ts","line":15,"avgDuration":54.34,"p95Duration":69.91,"callCount":43,"hasError":false,"hasAnomaly":false,"color":"#667eea"}},{"data":{"id":"sample-ecommerce::DatabaseService.execute","label":"execute","fullName":"DatabaseService.execute","service":"DatabaseService","agentId":"sample-ecommerce","file":"D:\\Ghost_Doc\\packages\\sample-app\\src\\services\\DatabaseService.ts","line":59,"avgDuration":41.55,"p95Duration":53.61,"callCount":89,"hasError":false,"hasAnomaly":false,"color":"#4a5568"}},{"data":{"id":"sample-ecommerce::NotificationService.sendSms","label":"sendSms","fullName":"NotificationService.sendSms","service":"NotificationService","agentId":"sample-ecommerce","file":"D:\\Ghost_Doc\\packages\\sample-app\\src\\services\\NotificationService.ts","line":40,"avgDuration":100.2,"p95Duration":100.2,"callCount":1,"hasError":false,"hasAnomaly":false,"color":"#ed8936"}},{"data":{"id":"sample-ecommerce::NotificationService.sendEmail","label":"sendEmail","fullName":"NotificationService.sendEmail","service":"NotificationService","agentId":"sample-ecommerce","file":"D:\\Ghost_Doc\\packages\\sample-app\\src\\services\\NotificationService.ts","line":16,"avgDuration":77.47,"p95Duration":95.01,"callCount":15,"hasError":false,"hasAnomaly":false,"color":"#ed8936"}},{"data":{"id":"sample-ecommerce::handleLogin","label":"handleLogin","fullName":"handleLogin","service":"Handlers","agentId":"sample-ecommerce","file":"D:\\Ghost_Doc\\packages\\sample-app\\src\\index.ts","line":94,"avgDuration":112.23,"p95Duration":166.6,"callCount":5,"hasError":false,"hasAnomaly":false,"color":"#3182ce"}},{"data":{"id":"sample-ecommerce::UserService.authenticate","label":"authenticate","fullName":"UserService.authenticate","service":"UserService","agentId":"sample-ecommerce","file":"D:\\Ghost_Doc\\packages\\sample-app\\src\\services\\UserService.ts","line":42,"avgDuration":94.72,"p95Duration":109.58,"callCount":5,"hasError":false,"hasAnomaly":true,"color":"#805ad5"}},{"data":{"id":"sample-ecommerce::handleProfileLoad","label":"handleProfileLoad","fullName":"handleProfileLoad","service":"Handlers","agentId":"sample-ecommerce","file":"D:\\Ghost_Doc\\packages\\sample-app\\src\\index.ts","line":107,"avgDuration":79.77,"p95Duration":116.92,"callCount":5,"hasError":false,"hasAnomaly":false,"color":"#3182ce"}},{"data":{"id":"sample-ecommerce::AuditService.getRecentActivity","label":"getRecentActivity","fullName":"AuditService.getRecentActivity","service":"AuditService","agentId":"sample-ecommerce","file":"D:\\Ghost_Doc\\packages\\sample-app\\src\\services\\AuditService.ts","line":31,"avgDuration":36.75,"p95Duration":49.46,"callCount":5,"hasError":false,"hasAnomaly":false,"color":"#667eea"}},{"data":{"id":"sample-ecommerce::DatabaseService.query","label":"query","fullName":"DatabaseService.query","service":"DatabaseService","agentId":"sample-ecommerce","file":"D:\\Ghost_Doc\\packages\\sample-app\\src\\services\\DatabaseService.ts","line":46,"avgDuration":36.37,"p95Duration":49.14,"callCount":22,"hasError":false,"hasAnomaly":false,"color":"#4a5568"}},{"data":{"id":"sample-ecommerce::PaymentService.refund","label":"refund","fullName":"PaymentService.refund","service":"PaymentService","agentId":"sample-ecommerce","file":"D:\\Ghost_Doc\\packages\\sample-app\\src\\services\\PaymentService.ts","line":54,"avgDuration":48.92,"p95Duration":48.92,"callCount":1,"hasError":false,"hasAnomaly":false,"color":"#e53e3e"}},{"data":{"id":"sample-ecommerce::UserService.getUserPreferences","label":"getUserPreferences","fullName":"UserService.getUserPreferences","service":"UserService","agentId":"sample-ecommerce","file":"D:\\Ghost_Doc\\packages\\sample-app\\src\\services\\UserService.ts","line":61,"avgDuration":33.99,"p95Duration":66.03,"callCount":7,"hasError":false,"hasAnomaly":false,"color":"#805ad5"}},{"data":{"id":"sample-ecommerce::CacheService.get","label":"get","fullName":"CacheService.get","service":"CacheService","agentId":"sample-ecommerce","file":"D:\\Ghost_Doc\\packages\\sample-app\\src\\services\\CacheService.ts","line":15,"avgDuration":11.72,"p95Duration":17.26,"callCount":98,"hasError":false,"hasAnomaly":true,"color":"#319795"}},{"data":{"id":"sample-ecommerce::UserService.getUser","label":"getUser","fullName":"UserService.getUser","service":"UserService","agentId":"sample-ecommerce","file":"D:\\Ghost_Doc\\packages\\sample-app\\src\\services\\UserService.ts","line":24,"avgDuration":17.41,"p95Duration":49.81,"callCount":19,"hasError":false,"hasAnomaly":false,"color":"#805ad5"}},{"data":{"id":"sample-ecommerce::handleCheckout","label":"handleCheckout","fullName":"handleCheckout","service":"Handlers","agentId":"sample-ecommerce","file":"D:\\Ghost_Doc\\packages\\sample-app\\src\\index.ts","line":78,"avgDuration":447.27,"p95Duration":629.01,"callCount":14,"hasError":true,"hasAnomaly":true,"color":"#3182ce"}},{"data":{"id":"sample-ecommerce::NotificationService.sendPush","label":"sendPush","fullName":"NotificationService.sendPush","service":"NotificationService","agentId":"sample-ecommerce","file":"D:\\Ghost_Doc\\packages\\sample-app\\src\\services\\NotificationService.ts","line":26,"avgDuration":70.57,"p95Duration":85.03,"callCount":9,"hasError":false,"hasAnomaly":false,"color":"#ed8936"}},{"data":{"id":"sample-ecommerce::OrderService.getOrderSummary","label":"getOrderSummary","fullName":"OrderService.getOrderSummary","service":"OrderService","agentId":"sample-ecommerce","file":"D:\\Ghost_Doc\\packages\\sample-app\\src\\services\\OrderService.ts","line":119,"avgDuration":57.75,"p95Duration":66.15,"callCount":12,"hasError":false,"hasAnomaly":false,"color":"#d69e2e"}},{"data":{"id":"sample-ecommerce::CacheService.set","label":"set","fullName":"CacheService.set","service":"CacheService","agentId":"sample-ecommerce","file":"D:\\Ghost_Doc\\packages\\sample-app\\src\\services\\CacheService.ts","line":24,"avgDuration":12.46,"p95Duration":17.98,"callCount":36,"hasError":false,"hasAnomaly":false,"color":"#319795"}},{"data":{"id":"sample-ecommerce::DatabaseService.findById","label":"findById","fullName":"DatabaseService.findById","service":"DatabaseService","agentId":"sample-ecommerce","file":"D:\\Ghost_Doc\\packages\\sample-app\\src\\services\\DatabaseService.ts","line":36,"avgDuration":26.87,"p95Duration":35.48,"callCount":48,"hasError":false,"hasAnomaly":false,"color":"#4a5568"}},{"data":{"id":"sample-ecommerce::OrderService.processOrder","label":"processOrder","fullName":"OrderService.processOrder","service":"OrderService","agentId":"sample-ecommerce","file":"D:\\Ghost_Doc\\packages\\sample-app\\src\\services\\OrderService.ts","line":77,"avgDuration":255.13,"p95Duration":341.79,"callCount":12,"hasError":false,"hasAnomaly":false,"color":"#d69e2e"}},{"data":{"id":"sample-ecommerce::PaymentService.charge","label":"charge","fullName":"PaymentService.charge","service":"PaymentService","agentId":"sample-ecommerce","file":"D:\\Ghost_Doc\\packages\\sample-app\\src\\services\\PaymentService.ts","line":29,"avgDuration":34.31,"p95Duration":48.76,"callCount":10,"hasError":false,"hasAnomaly":false,"color":"#e53e3e"}},{"data":{"id":"sample-ecommerce::InventoryService.reserveStock","label":"reserveStock","fullName":"InventoryService.reserveStock","service":"InventoryService","agentId":"sample-ecommerce","file":"D:\\Ghost_Doc\\packages\\sample-app\\src\\services\\InventoryService.ts","line":54,"avgDuration":85.07,"p95Duration":110.11,"callCount":14,"hasError":false,"hasAnomaly":false,"color":"#38a169"}},{"data":{"id":"sample-ecommerce::CacheService.invalidate","label":"invalidate","fullName":"CacheService.invalidate","service":"CacheService","agentId":"sample-ecommerce","file":"D:\\Ghost_Doc\\packages\\sample-app\\src\\services\\CacheService.ts","line":33,"avgDuration":11.95,"p95Duration":16.09,"callCount":14,"hasError":false,"hasAnomaly":false,"color":"#319795"}},{"data":{"id":"sample-ecommerce::PaymentService.validateCard","label":"validateCard","fullName":"PaymentService.validateCard","service":"PaymentService","agentId":"sample-ecommerce","file":"D:\\Ghost_Doc\\packages\\sample-app\\src\\services\\PaymentService.ts","line":19,"avgDuration":37.46,"p95Duration":50.65,"callCount":12,"hasError":false,"hasAnomaly":false,"color":"#e53e3e"}},{"data":{"id":"sample-ecommerce::OrderService.buildOrder","label":"buildOrder","fullName":"OrderService.buildOrder","service":"OrderService","agentId":"sample-ecommerce","file":"D:\\Ghost_Doc\\packages\\sample-app\\src\\services\\OrderService.ts","line":40,"avgDuration":109.7,"p95Duration":181.81,"callCount":14,"hasError":true,"hasAnomaly":true,"color":"#d69e2e"}},{"data":{"id":"sample-ecommerce::InventoryService.checkStock","label":"checkStock","fullName":"InventoryService.checkStock","service":"InventoryService","agentId":"sample-ecommerce","file":"D:\\Ghost_Doc\\packages\\sample-app\\src\\services\\InventoryService.ts","line":22,"avgDuration":20.2,"p95Duration":51.82,"callCount":30,"hasError":false,"hasAnomaly":false,"color":"#38a169"}},{"data":{"id":"sample-ecommerce::InventoryService.getProduct","label":"getProduct","fullName":"InventoryService.getProduct","service":"InventoryService","agentId":"sample-ecommerce","file":"D:\\Ghost_Doc\\packages\\sample-app\\src\\services\\InventoryService.ts","line":39,"avgDuration":21.38,"p95Duration":51.69,"callCount":30,"hasError":false,"hasAnomaly":false,"color":"#38a169"}},{"data":{"id":"sample-ecommerce::handleProductSearch","label":"handleProductSearch","fullName":"handleProductSearch","service":"Handlers","agentId":"sample-ecommerce","file":"D:\\Ghost_Doc\\packages\\sample-app\\src\\index.ts","line":117,"avgDuration":57.27,"p95Duration":83.48,"callCount":5,"hasError":false,"hasAnomaly":false,"color":"#3182ce"}}];
+const CY_EDGES = [{"data":{"id":"e0","source":"sample-ecommerce::handleRefund","target":"sample-ecommerce::AuditService.log","label":"50.7ms","callCount":1,"avgDuration":50.69}},{"data":{"id":"e1","source":"sample-ecommerce::AuditService.log","target":"sample-ecommerce::DatabaseService.execute","label":"39.7ms","callCount":43,"avgDuration":39.73}},{"data":{"id":"e2","source":"sample-ecommerce::handleRefund","target":"sample-ecommerce::NotificationService.sendSms","label":"100.2ms","callCount":1,"avgDuration":100.2}},{"data":{"id":"e3","source":"sample-ecommerce::NotificationService.sendSms","target":"sample-ecommerce::AuditService.log","label":"67.1ms","callCount":1,"avgDuration":67.13}},{"data":{"id":"e4","source":"sample-ecommerce::handleRefund","target":"sample-ecommerce::NotificationService.sendEmail","label":"83.4ms","callCount":1,"avgDuration":83.36}},{"data":{"id":"e5","source":"sample-ecommerce::NotificationService.sendEmail","target":"sample-ecommerce::AuditService.log","label":"54.7ms","callCount":15,"avgDuration":54.71}},{"data":{"id":"e6","source":"sample-ecommerce::handleLogin","target":"sample-ecommerce::UserService.authenticate","label":"94.7ms","callCount":5,"avgDuration":94.72}},{"data":{"id":"e7","source":"sample-ecommerce::UserService.authenticate","target":"sample-ecommerce::AuditService.log","label":"56.7ms","callCount":5,"avgDuration":56.74}},{"data":{"id":"e8","source":"sample-ecommerce::handleProfileLoad","target":"sample-ecommerce::AuditService.getRecentActivity","label":"36.8ms","callCount":5,"avgDuration":36.75}},{"data":{"id":"e9","source":"sample-ecommerce::AuditService.getRecentActivity","target":"sample-ecommerce::DatabaseService.query","label":"36.4ms","callCount":5,"avgDuration":36.43}},{"data":{"id":"e10","source":"sample-ecommerce::handleRefund","target":"sample-ecommerce::PaymentService.refund","label":"48.9ms","callCount":1,"avgDuration":48.92}},{"data":{"id":"e11","source":"sample-ecommerce::PaymentService.refund","target":"sample-ecommerce::DatabaseService.execute","label":"48.7ms","callCount":1,"avgDuration":48.72}},{"data":{"id":"e12","source":"sample-ecommerce::UserService.authenticate","target":"sample-ecommerce::DatabaseService.query","label":"34.4ms","callCount":5,"avgDuration":34.37}},{"data":{"id":"e13","source":"sample-ecommerce::handleProfileLoad","target":"sample-ecommerce::UserService.getUserPreferences","label":"30.7ms","callCount":5,"avgDuration":30.73}},{"data":{"id":"e14","source":"sample-ecommerce::UserService.getUserPreferences","target":"sample-ecommerce::CacheService.get","label":"14.3ms","callCount":7,"avgDuration":14.35}},{"data":{"id":"e15","source":"sample-ecommerce::handleProfileLoad","target":"sample-ecommerce::UserService.getUser","label":"11.6ms","callCount":5,"avgDuration":11.59}},{"data":{"id":"e16","source":"sample-ecommerce::UserService.getUser","target":"sample-ecommerce::CacheService.get","label":"10.8ms","callCount":19,"avgDuration":10.8}},{"data":{"id":"e17","source":"sample-ecommerce::handleCheckout","target":"sample-ecommerce::NotificationService.sendEmail","label":"78.7ms","callCount":12,"avgDuration":78.73}},{"data":{"id":"e18","source":"sample-ecommerce::handleCheckout","target":"sample-ecommerce::NotificationService.sendPush","label":"70.6ms","callCount":9,"avgDuration":70.57}},{"data":{"id":"e19","source":"sample-ecommerce::NotificationService.sendPush","target":"sample-ecommerce::AuditService.log","label":"53.1ms","callCount":9,"avgDuration":53.12}},{"data":{"id":"e20","source":"sample-ecommerce::handleCheckout","target":"sample-ecommerce::OrderService.getOrderSummary","label":"57.8ms","callCount":12,"avgDuration":57.75}},{"data":{"id":"e21","source":"sample-ecommerce::OrderService.getOrderSummary","target":"sample-ecommerce::CacheService.set","label":"15.9ms","callCount":12,"avgDuration":15.87}},{"data":{"id":"e22","source":"sample-ecommerce::OrderService.getOrderSummary","target":"sample-ecommerce::DatabaseService.findById","label":"25.6ms","callCount":12,"avgDuration":25.57}},{"data":{"id":"e23","source":"sample-ecommerce::OrderService.getOrderSummary","target":"sample-ecommerce::CacheService.get","label":"15.3ms","callCount":12,"avgDuration":15.34}},{"data":{"id":"e24","source":"sample-ecommerce::handleCheckout","target":"sample-ecommerce::OrderService.processOrder","label":"255.1ms","callCount":12,"avgDuration":255.13}},{"data":{"id":"e25","source":"sample-ecommerce::OrderService.processOrder","target":"sample-ecommerce::AuditService.log","label":"53.0ms","callCount":12,"avgDuration":53.02}},{"data":{"id":"e26","source":"sample-ecommerce::OrderService.processOrder","target":"sample-ecommerce::DatabaseService.execute","label":"43.4ms","callCount":10,"avgDuration":43.37}},{"data":{"id":"e27","source":"sample-ecommerce::OrderService.processOrder","target":"sample-ecommerce::PaymentService.charge","label":"34.3ms","callCount":10,"avgDuration":34.31}},{"data":{"id":"e28","source":"sample-ecommerce::PaymentService.charge","target":"sample-ecommerce::DatabaseService.execute","label":"37.7ms","callCount":9,"avgDuration":37.73}},{"data":{"id":"e29","source":"sample-ecommerce::OrderService.processOrder","target":"sample-ecommerce::InventoryService.reserveStock","label":"85.1ms","callCount":14,"avgDuration":85.07}},{"data":{"id":"e30","source":"sample-ecommerce::InventoryService.reserveStock","target":"sample-ecommerce::CacheService.invalidate","label":"11.9ms","callCount":14,"avgDuration":11.95}},{"data":{"id":"e31","source":"sample-ecommerce::InventoryService.reserveStock","target":"sample-ecommerce::DatabaseService.execute","label":"43.9ms","callCount":14,"avgDuration":43.88}},{"data":{"id":"e32","source":"sample-ecommerce::InventoryService.reserveStock","target":"sample-ecommerce::DatabaseService.findById","label":"28.3ms","callCount":14,"avgDuration":28.33}},{"data":{"id":"e33","source":"sample-ecommerce::OrderService.processOrder","target":"sample-ecommerce::PaymentService.validateCard","label":"37.5ms","callCount":12,"avgDuration":37.46}},{"data":{"id":"e34","source":"sample-ecommerce::PaymentService.validateCard","target":"sample-ecommerce::DatabaseService.query","label":"37.2ms","callCount":12,"avgDuration":37.18}},{"data":{"id":"e35","source":"sample-ecommerce::handleCheckout","target":"sample-ecommerce::OrderService.buildOrder","label":"109.7ms","callCount":14,"avgDuration":109.7}},{"data":{"id":"e36","source":"sample-ecommerce::OrderService.buildOrder","target":"sample-ecommerce::DatabaseService.execute","label":"46.1ms","callCount":12,"avgDuration":46.1}},{"data":{"id":"e37","source":"sample-ecommerce::OrderService.buildOrder","target":"sample-ecommerce::InventoryService.checkStock","label":"12.8ms","callCount":18,"avgDuration":12.79}},{"data":{"id":"e38","source":"sample-ecommerce::InventoryService.checkStock","target":"sample-ecommerce::CacheService.get","label":"13.5ms","callCount":30,"avgDuration":13.48}},{"data":{"id":"e39","source":"sample-ecommerce::OrderService.buildOrder","target":"sample-ecommerce::InventoryService.getProduct","label":"31.3ms","callCount":18,"avgDuration":31.26}},{"data":{"id":"e40","source":"sample-ecommerce::InventoryService.getProduct","target":"sample-ecommerce::CacheService.set","label":"9.6ms","callCount":11,"avgDuration":9.55}},{"data":{"id":"e41","source":"sample-ecommerce::InventoryService.getProduct","target":"sample-ecommerce::DatabaseService.findById","label":"24.9ms","callCount":11,"avgDuration":24.91}},{"data":{"id":"e42","source":"sample-ecommerce::InventoryService.getProduct","target":"sample-ecommerce::CacheService.get","label":"8.5ms","callCount":30,"avgDuration":8.49}},{"data":{"id":"e43","source":"sample-ecommerce::OrderService.buildOrder","target":"sample-ecommerce::UserService.getUser","label":"19.5ms","callCount":14,"avgDuration":19.49}},{"data":{"id":"e44","source":"sample-ecommerce::handleProductSearch","target":"sample-ecommerce::InventoryService.getProduct","label":"6.6ms","callCount":12,"avgDuration":6.56}},{"data":{"id":"e45","source":"sample-ecommerce::handleProductSearch","target":"sample-ecommerce::InventoryService.checkStock","label":"31.3ms","callCount":12,"avgDuration":31.3}},{"data":{"id":"e46","source":"sample-ecommerce::InventoryService.checkStock","target":"sample-ecommerce::CacheService.set","label":"8.1ms","callCount":5,"avgDuration":8.05}},{"data":{"id":"e47","source":"sample-ecommerce::InventoryService.checkStock","target":"sample-ecommerce::DatabaseService.findById","label":"30.9ms","callCount":5,"avgDuration":30.89}},{"data":{"id":"e48","source":"sample-ecommerce::handleLogin","target":"sample-ecommerce::UserService.getUserPreferences","label":"42.1ms","callCount":2,"avgDuration":42.14}},{"data":{"id":"e49","source":"sample-ecommerce::UserService.authenticate","target":"sample-ecommerce::CacheService.set","label":"8.2ms","callCount":2,"avgDuration":8.2}},{"data":{"id":"e50","source":"sample-ecommerce::UserService.getUserPreferences","target":"sample-ecommerce::CacheService.set","label":"16.0ms","callCount":3,"avgDuration":15.96}},{"data":{"id":"e51","source":"sample-ecommerce::UserService.getUserPreferences","target":"sample-ecommerce::DatabaseService.findById","label":"28.7ms","callCount":3,"avgDuration":28.74}},{"data":{"id":"e52","source":"sample-ecommerce::UserService.getUser","target":"sample-ecommerce::CacheService.set","label":"16.1ms","callCount":3,"avgDuration":16.13}},{"data":{"id":"e53","source":"sample-ecommerce::UserService.getUser","target":"sample-ecommerce::DatabaseService.findById","label":"23.9ms","callCount":3,"avgDuration":23.89}}];
+const ERROR_EXAMPLES = {"handleCheckout":{"functionName":"handleCheckout","errorType":"Error","message":"Insufficient stock for \"USB-C Hub\" (requested: 1, available: 0)","stack":"Error: Insufficient stock for \"USB-C Hub\" (requested: 1, available: 0)\n    at <anonymous> (D:\\Ghost_Doc\\packages\\sample-app\\src\\services\\OrderService.ts:51:21)\n    at async Promise.all (index 0)\n    at async <anonymous> (D:\\Ghost_Doc\\packages\\sample-app\\src\\services\\OrderService.ts:46:27)\n    at async OrderService.place (D:\\Ghost_Doc\\packages\\sample-app\\src\\services\\OrderService.ts:136:19)\n    at async <anonymous> (D:\\Ghost_Doc\\packages\\sample-app\\src\\index.ts:81:19)\n    at async Object.scenarioOutOfStock (D:\\Ghost_Doc\\packages\\sample-app\\src\\index.ts:178:5)\n    at async <anonymous> (D:\\Ghost_Doc\\packages\\sample-app\\src\\index.ts:263:11)\n    at async Promise.all (index 1)\n    at async main (D:\\Ghost_Doc\\packages\\sample-app\\src\\index.ts:260:5)"},"OrderService.buildOrder":{"functionName":"OrderService.buildOrder","errorType":"Error","message":"Insufficient stock for \"USB-C Hub\" (requested: 1, available: 0)","stack":"Error: Insufficient stock for \"USB-C Hub\" (requested: 1, available: 0)\n    at <anonymous> (D:\\Ghost_Doc\\packages\\sample-app\\src\\services\\OrderService.ts:51:21)\n    at async Promise.all (index 0)\n    at async <anonymous> (D:\\Ghost_Doc\\packages\\sample-app\\src\\services\\OrderService.ts:46:27)\n    at async OrderService.place (D:\\Ghost_Doc\\packages\\sample-app\\src\\services\\OrderService.ts:136:19)\n    at async <anonymous> (D:\\Ghost_Doc\\packages\\sample-app\\src\\index.ts:81:19)\n    at async Object.scenarioOutOfStock (D:\\Ghost_Doc\\packages\\sample-app\\src\\index.ts:178:5)\n    at async <anonymous> (D:\\Ghost_Doc\\packages\\sample-app\\src\\index.ts:263:11)\n    at async Promise.all (index 1)\n    at async main (D:\\Ghost_Doc\\packages\\sample-app\\src\\index.ts:260:5)"}};
+const TOTAL_NODES = 28;
+
+// ── Cytoscape init ─────────────────────────────────────────────────────────
+const cy = cytoscape({
+  container: document.getElementById("cy"),
+  elements: {
+    nodes: CY_NODES,
+    edges: CY_EDGES,
+  },
+  style: [
+    {
+      selector: "node",
+      style: {
+        "background-color": "data(color)",
+        "border-width": 2,
+        "border-color": "data(color)",
+        "border-opacity": 0.6,
+        color: "#fff",
+        "font-family": "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+        "font-size": 11,
+        "font-weight": 600,
+        label: "data(label)",
+        "min-zoomed-font-size": 8,
+        "text-valign": "center",
+        "text-halign": "center",
+        "text-wrap": "wrap",
+        "text-max-width": 120,
+        width: 140,
+        height: 40,
+        shape: "roundrectangle",
+        "overlay-opacity": 0,
+        "transition-property": "opacity, border-width, border-color",
+        "transition-duration": "0.15s",
+      },
+    },
+    {
+      selector: "node[?hasError]",
+      style: {
+        "background-color": "#c53030",
+        "border-color": "#fc8181",
+        "border-width": 3,
+      },
+    },
+    {
+      selector: "node[?hasAnomaly]:not([?hasError])",
+      style: {
+        "border-color": "#f6ad55",
+        "border-width": 3,
+        "border-style": "dashed",
+      },
+    },
+    {
+      selector: "node[service = 'Handlers']",
+      style: {
+        shape: "hexagon",
+        width: 130,
+        height: 48,
+      },
+    },
+    {
+      selector: "edge",
+      style: {
+        "curve-style": "bezier",
+        "line-color": "#4a5568",
+        "target-arrow-color": "#4a5568",
+        "target-arrow-shape": "triangle",
+        "arrow-scale": 0.8,
+        opacity: 0.7,
+        width: 1.5,
+        label: "data(label)",
+        "font-size": 9,
+        color: "#a0aec0",
+        "text-background-color": "#0f1117",
+        "text-background-opacity": 0.8,
+        "text-background-padding": "2px",
+        "overlay-opacity": 0,
+        "transition-property": "opacity, line-color, width",
+        "transition-duration": "0.15s",
+      },
+    },
+    {
+      selector: ".faded",
+      style: { opacity: 0.1 },
+    },
+    {
+      selector: ".highlighted",
+      style: {
+        opacity: 1,
+        "border-width": 4,
+        "border-color": "#63b3ed",
+        "z-index": 10,
+      },
+    },
+    {
+      selector: "edge.highlighted",
+      style: {
+        "line-color": "#63b3ed",
+        "target-arrow-color": "#63b3ed",
+        opacity: 1,
+        width: 2.5,
+        "z-index": 10,
+      },
+    },
+    {
+      selector: ".selected-node",
+      style: {
+        "border-width": 4,
+        "border-color": "#90cdf4",
+        "border-style": "solid",
+        "z-index": 20,
+      },
+    },
+    {
+      selector: ".hidden-node",
+      style: { display: "none" },
+    },
+  ],
+  layout: { name: "breadthfirst", directed: true, spacingFactor: 1.5, padding: 40 },
+  wheelSensitivity: 0.3,
+  minZoom: 0.1,
+  maxZoom: 4,
+});
+
+// ── State ──────────────────────────────────────────────────────────────────
+let activeFilter   = "all";       // "all" | "errors" | "anomalies"
+let activeService  = "__all__";   // service name or "__all__"
+let searchQuery    = "";
+let edgeLabelsOn   = true;
+let selectedNodeId = null;
+
+// ── Layout helpers ─────────────────────────────────────────────────────────
+function runLayout(name) {
+  const opts = name === "dag"
+    ? { name: "breadthfirst", directed: true, spacingFactor: 1.6, padding: 40, animate: true, animationDuration: 350 }
+    : { name: "cose", nodeRepulsion: 8000, idealEdgeLength: 120, padding: 40, animate: true, animationDuration: 500, randomize: false };
+  cy.layout(opts).run();
+}
+
+// ── Visibility logic ───────────────────────────────────────────────────────
+function applyVisibility() {
+  cy.nodes().forEach((node) => {
+    const d = node.data();
+    const matchesSearch = searchQuery === "" || d.fullName.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesFilter =
+      activeFilter === "all" ||
+      (activeFilter === "errors" && d.hasError) ||
+      (activeFilter === "anomalies" && d.hasAnomaly);
+    const matchesService = activeService === "__all__" || d.service === activeService;
+
+    if (matchesSearch && matchesFilter && matchesService) {
+      node.removeClass("hidden-node");
+    } else {
+      node.addClass("hidden-node");
+    }
+  });
+
+  // Hide edges whose source or target is hidden
+  cy.edges().forEach((e) => {
+    const srcHidden = e.source().hasClass("hidden-node");
+    const tgtHidden = e.target().hasClass("hidden-node");
+    if (srcHidden || tgtHidden) {
+      e.addClass("hidden-node");
+    } else {
+      e.removeClass("hidden-node");
+    }
+  });
+
+  // Update stats
+  const visible = cy.nodes().filter((n) => !n.hasClass("hidden-node")).length;
+  document.getElementById("stat-count").textContent = visible;
+}
+
+// ── Hover highlight ────────────────────────────────────────────────────────
+cy.on("mouseover", "node", (evt) => {
+  if (selectedNodeId !== null) return; // don't override selection
+  const node = evt.target;
+  const connected = node.closedNeighborhood();
+  cy.elements().not(connected).addClass("faded");
+  connected.addClass("highlighted");
+  connected.nodes().removeClass("highlighted"); // edges only
+  node.addClass("highlighted");
+});
+
+cy.on("mouseout", "node", () => {
+  if (selectedNodeId !== null) return;
+  cy.elements().removeClass("faded highlighted");
+});
+
+// ── Click to inspect ───────────────────────────────────────────────────────
+cy.on("tap", "node", (evt) => {
+  const node = evt.target;
+  const d    = node.data();
+
+  // Clear previous selection
+  cy.nodes().removeClass("selected-node faded highlighted");
+  cy.edges().removeClass("highlighted faded");
+
+  // Highlight neighbourhood
+  const connected = node.closedNeighborhood();
+  cy.elements().not(connected).addClass("faded");
+  connected.edges().addClass("highlighted");
+  node.addClass("selected-node");
+
+  selectedNodeId = d.id;
+  renderDetailPanel(d);
+  document.getElementById("stat-selected").textContent = "Selected: " + d.fullName;
+});
+
+cy.on("tap", (evt) => {
+  if (evt.target === cy) {
+    // Tap on background → clear selection
+    cy.elements().removeClass("faded highlighted selected-node");
+    selectedNodeId = null;
+    closeDetail();
+    document.getElementById("stat-selected").textContent = "";
+  }
+});
+
+// ── Detail panel ───────────────────────────────────────────────────────────
+function renderDetailPanel(d) {
+  const panel = document.getElementById("detail");
+  const title = document.getElementById("detail-title");
+  const body  = document.getElementById("detail-body");
+
+  title.textContent = d.fullName;
+  title.style.color = d.color;
+
+  const badges = [
+    d.hasError    ? '<span class="badge-pill badge-error">ERR</span>'    : "",
+    d.hasAnomaly  ? '<span class="badge-pill badge-anomaly">ANOMALY</span>' : "",
+  ].filter(Boolean).join(" ");
+
+  // Callers and callees
+  const cyNode    = cy.getElementById(d.id);
+  const callers   = cyNode.incomers("node").map((n) => n.data());
+  const callees   = cyNode.outgoers("node").map((n) => n.data());
+
+  const connItem = (nd, arrow) =>
+    `<div class="conn-item" data-node-id="${nd.id}">
+      <span>${nd.fullName}</span>
+      <span class="conn-arrow">${arrow}</span>
+    </div>`;
+
+  const errExample = ERROR_EXAMPLES[d.fullName];
+  const errorSection = errExample
+    ? `<div>
+        <div class="detail-section-title">Last Error</div>
+        <div class="error-box">
+          <div class="error-type">${errExample.errorType}</div>
+          <div class="error-msg">${errExample.message}</div>
+          ${errExample.stack ? `<pre class="error-stack">${errExample.stack.split("\n").slice(0, 8).join("\n")}</pre>` : ""}
+        </div>
+      </div>`
+    : "";
+
+  body.innerHTML = `
+    <div>
+      <div class="kv-grid">
+        <span class="kv-key">Function</span>
+        <span class="kv-val">${d.fullName} ${badges}</span>
+        <span class="kv-key">Service</span>
+        <span class="kv-val" style="color:${d.color}">${d.service}</span>
+        <span class="kv-key">Agent</span>
+        <span class="kv-val">${d.agentId}</span>
+        <span class="kv-key">File</span>
+        <span class="kv-val">${d.file}:${d.line}</span>
+      </div>
+    </div>
+    <div>
+      <div class="detail-section-title">Metrics</div>
+      <div class="kv-grid">
+        <span class="kv-key">Avg latency</span>
+        <span class="kv-val">${formatDuration(d.avgDuration)}</span>
+        <span class="kv-key">P95 latency</span>
+        <span class="kv-val">${formatDuration(d.p95Duration)}</span>
+        <span class="kv-key">Call count</span>
+        <span class="kv-val">${d.callCount}</span>
+      </div>
+    </div>
+    ${callers.length > 0 ? `
+    <div>
+      <div class="detail-section-title">Called by (${callers.length})</div>
+      <div class="connection-list">
+        ${callers.map((n) => connItem(n, "→ here")).join("")}
+      </div>
+    </div>` : ""}
+    ${callees.length > 0 ? `
+    <div>
+      <div class="detail-section-title">Calls (${callees.length})</div>
+      <div class="connection-list">
+        ${callees.map((n) => connItem(n, "calls →")).join("")}
+      </div>
+    </div>` : ""}
+    ${errorSection}
+  `;
+
+  // Click on connection items → navigate to that node
+  body.querySelectorAll(".conn-item").forEach((el) => {
+    el.addEventListener("click", () => {
+      const id = el.dataset.nodeId;
+      const target = cy.getElementById(id);
+      if (target.length > 0) {
+        target.trigger("tap");
+        cy.animate({ fit: { eles: target.closedNeighborhood(), padding: 80 }, duration: 300 });
+      }
+    });
+  });
+
+  panel.classList.add("open");
+}
+
+function closeDetail() {
+  document.getElementById("detail").classList.remove("open");
+}
+
+document.getElementById("detail-close").addEventListener("click", () => {
+  cy.elements().removeClass("faded highlighted selected-node");
+  selectedNodeId = null;
+  closeDetail();
+  document.getElementById("stat-selected").textContent = "";
+});
+
+// ── Duration formatter ─────────────────────────────────────────────────────
+function formatDuration(ms) {
+  if (ms < 1)    return Math.round(ms * 1000) + "µs";
+  if (ms < 1000) return ms.toFixed(1) + "ms";
+  return (ms / 1000).toFixed(2) + "s";
+}
+
+// ── Controls ───────────────────────────────────────────────────────────────
+function setActiveBtn(group, activeId) {
+  document.querySelectorAll(group).forEach((b) => b.classList.remove("active"));
+  document.getElementById(activeId).classList.add("active");
+}
+
+document.getElementById("btn-all").addEventListener("click", () => {
+  activeFilter = "all";
+  setActiveBtn(".btn-group .ctrl-btn:not(#btn-layout-dag):not(#btn-layout-force):not(#btn-edge-labels):not(#btn-fit)", "btn-all");
+  document.getElementById("btn-all").classList.add("active");
+  document.getElementById("btn-errors").classList.remove("active");
+  document.getElementById("btn-anomalies").classList.remove("active");
+  applyVisibility();
+});
+
+document.getElementById("btn-errors").addEventListener("click", () => {
+  activeFilter = activeFilter === "errors" ? "all" : "errors";
+  document.getElementById("btn-errors").classList.toggle("active");
+  if (activeFilter === "errors") document.getElementById("btn-all").classList.remove("active");
+  else document.getElementById("btn-all").classList.add("active");
+  document.getElementById("btn-anomalies").classList.remove("active");
+  applyVisibility();
+});
+
+document.getElementById("btn-anomalies").addEventListener("click", () => {
+  activeFilter = activeFilter === "anomalies" ? "all" : "anomalies";
+  document.getElementById("btn-anomalies").classList.toggle("active");
+  if (activeFilter === "anomalies") document.getElementById("btn-all").classList.remove("active");
+  else document.getElementById("btn-all").classList.add("active");
+  document.getElementById("btn-errors").classList.remove("active");
+  applyVisibility();
+});
+
+document.getElementById("btn-layout-dag").addEventListener("click", () => {
+  setActiveBtn("#btn-layout-dag, #btn-layout-force", "btn-layout-dag");
+  runLayout("dag");
+});
+document.getElementById("btn-layout-force").addEventListener("click", () => {
+  setActiveBtn("#btn-layout-dag, #btn-layout-force", "btn-layout-force");
+  runLayout("force");
+});
+
+document.getElementById("btn-edge-labels").addEventListener("click", () => {
+  edgeLabelsOn = !edgeLabelsOn;
+  document.getElementById("btn-edge-labels").classList.toggle("active");
+  cy.style().selector("edge").style("label", edgeLabelsOn ? "data(label)" : "").update();
+});
+
+document.getElementById("btn-fit").addEventListener("click", () => {
+  cy.fit(undefined, 40);
+});
+
+// ── Search ─────────────────────────────────────────────────────────────────
+document.getElementById("search-input").addEventListener("input", (e) => {
+  searchQuery = e.target.value.trim();
+  applyVisibility();
+});
+
+// ── Service legend ─────────────────────────────────────────────────────────
+document.querySelectorAll(".legend-btn").forEach((btn) => {
+  // Add call count badge
+  const svc = btn.dataset.service;
+  if (svc !== "__all__") {
+    const count = CY_NODES.filter((n) => n.data.service === svc).length;
+    const badge = document.createElement("span");
+    badge.className = "badge";
+    badge.textContent = count;
+    btn.appendChild(badge);
+  }
+
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".legend-btn").forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+    activeService = svc;
+    applyVisibility();
+    // Focus visible nodes
+    const visible = cy.nodes().filter((n) => !n.hasClass("hidden-node"));
+    if (visible.length > 0) cy.fit(visible, 60);
+  });
+});
+
+// ── Initial fit ────────────────────────────────────────────────────────────
+cy.ready(() => { cy.fit(undefined, 40); });
+</script>
+</body>
+</html>

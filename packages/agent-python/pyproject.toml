@@ -1,0 +1,29 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ghost-doc-agent"
+version = "0.1.0"
+description = "Ghost Doc black-box tracing agent for Python"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+keywords = ["tracing", "documentation", "observability", "debugging"]
+dependencies = [
+    "websockets>=12.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "anyio[asyncio]>=4.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["ghost_doc_agent"]

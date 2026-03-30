@@ -1,0 +1,45 @@
+name: Publish
+
+on:
+  push:
+    branches: [main]
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "10"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build all packages
+        run: |
+          pnpm --filter @ghost-doc/shared-types build
+          pnpm --filter @ghost-doc/agent-js build
+          pnpm --filter @ghost-doc/exporter build
+          pnpm --filter @ghost-doc/dashboard build
+          pnpm --filter ghost-doc build
+          pnpm --filter ghost-doc copy-dashboard
+
+      - name: Create release PR or publish to npm
+        uses: changesets/action@v1
+        with:
+          publish: pnpm changeset publish
+          title: "chore: version packages"
+          commit: "chore: version packages"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

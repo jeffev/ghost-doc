@@ -1,0 +1,43 @@
+{
+  "name": "ghost-doc",
+  "private": true,
+  "version": "0.0.0",
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=10"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "test": "pnpm -r test",
+    "test:py": "pytest packages/agent-python/tests -v",
+    "prepare": "husky",
+    "demo:build": "pnpm --filter @ghost-doc/shared-types build && pnpm --filter @ghost-doc/agent-js build && pnpm --filter @ghost-doc/exporter build && pnpm --filter @ghost-doc/dashboard build && pnpm --filter ghost-doc build && pnpm --filter ghost-doc copy-dashboard",
+    "demo:sample": "pnpm --filter @ghost-doc/sample-app start",
+    "demo:html": "pnpm demo:sample && node packages/hub/dist/cli.js export --format html --output FLOW.html --project SampleApp",
+    "ghost-doc": "node packages/hub/dist/cli.js"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.30.0",
+    "@commitlint/cli": "^20.5.0",
+    "@commitlint/config-conventional": "^20.5.0",
+    "typescript-eslint": "^8.57.2",
+    "eslint": "^9.0.0",
+    "eslint-config-prettier": "^9.1.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
+    "prettier": "^3.8.1",
+    "typescript": "^6.0.2"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yaml,yml}": [
+      "prettier --write"
+    ]
+  }
+}
