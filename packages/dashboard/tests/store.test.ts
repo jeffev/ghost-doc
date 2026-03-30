@@ -1,5 +1,10 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { useDashboardStore, selectAgentIds, selectTimeRange, selectAnomalyTimestamps } from "../src/store/index.js";
+import {
+  useDashboardStore,
+  selectAgentIds,
+  selectTimeRange,
+  selectAnomalyTimestamps,
+} from "../src/store/index.js";
 import { makeSpan } from "./fixtures.js";
 
 // Reset the store before each test.
@@ -10,7 +15,7 @@ beforeEach(() => {
     connectionStatus: "connecting",
     rateWindow: [],
     timeTravel: { seekTs: null, isPlaying: false, playbackSpeed: 1 },
-    filter: { agentId: null, functionName: "", tag: "" },
+    filter: { agentId: null, functionName: "", tag: "", groupBy: "none" },
   });
 });
 
@@ -77,7 +82,16 @@ describe("time-travel seekTo", () => {
   it("filters graph to only spans before seekTs", () => {
     const t = Date.now();
     const past = makeSpan({ received_at: t - 5000 });
-    const future = makeSpan({ received_at: t + 5000, source: { agent_id: "test-agent", language: "js", file: "f.ts", line: 1, function_name: "futureFunc" } });
+    const future = makeSpan({
+      received_at: t + 5000,
+      source: {
+        agent_id: "test-agent",
+        language: "js",
+        file: "f.ts",
+        line: 1,
+        function_name: "futureFunc",
+      },
+    });
     useDashboardStore.getState().addSpan(past);
     useDashboardStore.getState().addSpan(future);
 
@@ -100,8 +114,32 @@ describe("time-travel seekTo", () => {
 
 describe("filter setFilter", () => {
   it("filters graph by agent", () => {
-    useDashboardStore.getState().addSpan(makeSpan({ source: { agent_id: "frontend", language: "js", file: "f.ts", line: 1, function_name: "fn" } }));
-    useDashboardStore.getState().addSpan(makeSpan({ source: { agent_id: "backend", language: "python", file: "b.py", line: 1, function_name: "fn2" } }));
+    useDashboardStore
+      .getState()
+      .addSpan(
+        makeSpan({
+          source: {
+            agent_id: "frontend",
+            language: "js",
+            file: "f.ts",
+            line: 1,
+            function_name: "fn",
+          },
+        }),
+      );
+    useDashboardStore
+      .getState()
+      .addSpan(
+        makeSpan({
+          source: {
+            agent_id: "backend",
+            language: "python",
+            file: "b.py",
+            line: 1,
+            function_name: "fn2",
+          },
+        }),
+      );
 
     useDashboardStore.getState().setFilter({ agentId: "frontend" });
     const { graph } = useDashboardStore.getState();
@@ -109,8 +147,32 @@ describe("filter setFilter", () => {
   });
 
   it("filters by function name (case-insensitive substring)", () => {
-    useDashboardStore.getState().addSpan(makeSpan({ source: { agent_id: "a", language: "js", file: "f.ts", line: 1, function_name: "handleLogin" } }));
-    useDashboardStore.getState().addSpan(makeSpan({ source: { agent_id: "a", language: "js", file: "f.ts", line: 2, function_name: "fetchUser" } }));
+    useDashboardStore
+      .getState()
+      .addSpan(
+        makeSpan({
+          source: {
+            agent_id: "a",
+            language: "js",
+            file: "f.ts",
+            line: 1,
+            function_name: "handleLogin",
+          },
+        }),
+      );
+    useDashboardStore
+      .getState()
+      .addSpan(
+        makeSpan({
+          source: {
+            agent_id: "a",
+            language: "js",
+            file: "f.ts",
+            line: 2,
+            function_name: "fetchUser",
+          },
+        }),
+      );
 
     useDashboardStore.getState().setFilter({ functionName: "login" });
     const { graph } = useDashboardStore.getState();
@@ -121,8 +183,32 @@ describe("filter setFilter", () => {
 
 describe("selectors", () => {
   it("selectAgentIds returns sorted unique agent IDs", () => {
-    useDashboardStore.getState().addSpan(makeSpan({ source: { agent_id: "z-agent", language: "js", file: "f.ts", line: 1, function_name: "fn" } }));
-    useDashboardStore.getState().addSpan(makeSpan({ source: { agent_id: "a-agent", language: "js", file: "f.ts", line: 1, function_name: "fn" } }));
+    useDashboardStore
+      .getState()
+      .addSpan(
+        makeSpan({
+          source: {
+            agent_id: "z-agent",
+            language: "js",
+            file: "f.ts",
+            line: 1,
+            function_name: "fn",
+          },
+        }),
+      );
+    useDashboardStore
+      .getState()
+      .addSpan(
+        makeSpan({
+          source: {
+            agent_id: "a-agent",
+            language: "js",
+            file: "f.ts",
+            line: 1,
+            function_name: "fn",
+          },
+        }),
+      );
     const ids = selectAgentIds(useDashboardStore.getState());
     expect(ids).toEqual(["a-agent", "z-agent"]);
   });

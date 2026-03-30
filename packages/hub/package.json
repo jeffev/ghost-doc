@@ -2,12 +2,18 @@
   "name": "ghost-doc",
   "version": "0.1.0",
   "description": "Ghost Doc — black-box runtime documentation tool. Hub server, CLI, and dashboard.",
-  "keywords": ["documentation", "tracing", "observability", "debugging", "flowchart"],
+  "keywords": [
+    "documentation",
+    "tracing",
+    "observability",
+    "debugging",
+    "flowchart"
+  ],
   "license": "MIT",
-  "homepage": "https://github.com/your-org/ghost-doc#readme",
+  "homepage": "https://github.com/jeffev/ghost-doc#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-org/ghost-doc.git",
+    "url": "https://github.com/jeffev/ghost-doc.git",
     "directory": "packages/hub"
   },
   "type": "module",
@@ -21,7 +27,10 @@
     }
   },
   "types": "./dist/index.d.ts",
-  "files": ["dist", "public"],
+  "files": [
+    "dist",
+    "public"
+  ],
   "scripts": {
     "build": "tsup src/index.ts src/cli.ts --format esm --dts --clean --shims",
     "copy-dashboard": "node -e \"const fs=require('fs'),path=require('path');const src=path.resolve(process.cwd(),'../dashboard/dist');const dest=path.resolve(process.cwd(),'public');if(fs.existsSync(src)){fs.rmSync(dest,{recursive:true,force:true});fs.cpSync(src,dest,{recursive:true});console.log('[ghost-doc] dashboard copied to hub/public');}else{console.log('[ghost-doc] dashboard/dist not found — run dashboard build first');}\"",

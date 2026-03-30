@@ -2,26 +2,34 @@
   "name": "@ghost-doc/agent-js",
   "version": "0.1.0",
   "description": "Ghost Doc tracing agent for JavaScript and TypeScript — instrument functions with @trace and stream spans to the Hub.",
-  "keywords": ["tracing", "documentation", "observability", "decorator", "typescript"],
+  "keywords": [
+    "tracing",
+    "documentation",
+    "observability",
+    "decorator",
+    "typescript"
+  ],
   "license": "MIT",
-  "homepage": "https://github.com/your-org/ghost-doc#readme",
+  "homepage": "https://github.com/jeffev/ghost-doc#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-org/ghost-doc.git",
+    "url": "https://github.com/jeffev/ghost-doc.git",
     "directory": "packages/agent-js"
   },
   "type": "module",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
-      "require": "./dist/index.cjs",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/index.cjs"
     }
   },
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsup src/index.ts --format esm,cjs --dts --clean",
     "typecheck": "tsc --noEmit",
