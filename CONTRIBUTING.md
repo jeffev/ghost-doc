@@ -11,7 +11,7 @@ Thank you for your interest in contributing! This document covers everything you
 ## Getting started
 
 ```bash
-git clone https://github.com/YOUR_ORG/ghost-doc.git
+git clone https://github.com/jeffev/ghost-doc.git
 cd ghost-doc
 pnpm install
 ```
