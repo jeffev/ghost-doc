@@ -1,6 +1,6 @@
 {
   "name": "ghost-doc",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Ghost Doc — black-box runtime documentation tool. Hub server, CLI, and dashboard.",
   "keywords": [
     "documentation",

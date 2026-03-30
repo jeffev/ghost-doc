@@ -1,6 +1,6 @@
 {
   "name": "@ghost-doc/agent-js",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Ghost Doc tracing agent for JavaScript and TypeScript — instrument functions with @trace and stream spans to the Hub.",
   "keywords": [
     "tracing",
