@@ -2,9 +2,11 @@
 
 > **Your code's black box.** Ghost Doc observes how your functions actually behave at runtime and turns that into visual documentation — automatically, without a single written comment.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](#license)
-[![npm](https://img.shields.io/npm/v/@ghost-doc/agent-js)](https://www.npmjs.com/package/@ghost-doc/agent-js)
+[![CI](https://github.com/YOUR_ORG/ghost-doc/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_ORG/ghost-doc/actions/workflows/ci.yml)
+[![npm ghost-doc](https://img.shields.io/npm/v/ghost-doc?label=ghost-doc)](https://www.npmjs.com/package/ghost-doc)
+[![npm agent-js](https://img.shields.io/npm/v/@ghost-doc/agent-js?label=%40ghost-doc%2Fagent-js)](https://www.npmjs.com/package/@ghost-doc/agent-js)
 [![PyPI](https://img.shields.io/pypi/v/ghost-doc-agent)](https://pypi.org/project/ghost-doc-agent)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](#license)
 
 ---
 

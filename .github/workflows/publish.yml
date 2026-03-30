@@ -37,7 +37,7 @@ jobs:
       - name: Create release PR or publish to npm
         uses: changesets/action@v1
         with:
-          publish: pnpm changeset publish
+          publish: pnpm changeset publish --provenance
           title: "chore: version packages"
           commit: "chore: version packages"
         env:
