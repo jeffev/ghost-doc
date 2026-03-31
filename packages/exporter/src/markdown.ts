@@ -1,4 +1,3 @@
-import * as path from "node:path";
 import { buildMermaidDiagram } from "./mermaid.js";
 import type { ExportGraph, SpanInput } from "./types.js";
 
@@ -138,9 +137,7 @@ function buildCallChainsSection(spans: SpanInput[], maxChains: number): string[]
 
   // Root spans = spans with no parent (or parent not in this set)
   const spanIds = new Set(spans.map((s) => s.span_id));
-  const roots = spans.filter(
-    (s) => s.parent_span_id === null || !spanIds.has(s.parent_span_id),
-  );
+  const roots = spans.filter((s) => s.parent_span_id === null || !spanIds.has(s.parent_span_id));
 
   // Keep only roots that have children (otherwise they're uninteresting single calls)
   const trees = roots
@@ -160,7 +157,9 @@ function buildCallChainsSection(spans: SpanInput[], maxChains: number): string[]
 
   for (let i = 0; i < trees.length; i++) {
     const tree = trees[i]!;
-    lines.push(`### Chain ${i + 1} — ${tree.functionName} *(${durationLabel(tree.durationMs)} total)*`);
+    lines.push(
+      `### Chain ${i + 1} — ${tree.functionName} *(${durationLabel(tree.durationMs)} total)*`,
+    );
     lines.push("");
     lines.push("```");
     lines.push(chainToString(tree));
@@ -175,7 +174,11 @@ function buildCallChainsSection(spans: SpanInput[], maxChains: number): string[]
 // Error details section
 // ---------------------------------------------------------------------------
 
-function buildErrorDetailsSection(spans: SpanInput[], maxErrors: number, rootPath?: string): string[] {
+function buildErrorDetailsSection(
+  spans: SpanInput[],
+  maxErrors: number,
+  rootPath?: string,
+): string[] {
   const lines: string[] = [];
 
   const errorSpans = spans
@@ -189,7 +192,9 @@ function buildErrorDetailsSection(spans: SpanInput[], maxErrors: number, rootPat
 
   lines.push("## Error Details");
   lines.push("");
-  lines.push(`> ${errorSpans.length} error${errorSpans.length !== 1 ? "s" : ""} captured. Showing the ${errorSpans.length} most recent.`);
+  lines.push(
+    `> ${errorSpans.length} error${errorSpans.length !== 1 ? "s" : ""} captured. Showing the ${errorSpans.length} most recent.`,
+  );
   lines.push("");
 
   for (const span of errorSpans) {
@@ -267,21 +272,34 @@ export function buildMarkdownDoc(
   // ── Function Index ────────────────────────────────────────────────────────
   sections.push("## Function Index");
   sections.push("");
-  sections.push("| Function | Agent | File | Avg | P95 | Calls |");
-  sections.push("| :--- | :--- | :--- | ---: | ---: | ---: |");
 
   const sorted = [...graph.nodes].sort(
     (a, b) => a.agentId.localeCompare(b.agentId) || a.functionName.localeCompare(b.functionName),
   );
+
+  const hasDescriptions = sorted.some((n) => n.description);
+  if (hasDescriptions) {
+    sections.push("| Function | Description | Agent | File | Avg | P95 | Calls |");
+    sections.push("| :--- | :--- | :--- | :--- | ---: | ---: | ---: |");
+  } else {
+    sections.push("| Function | Agent | File | Avg | P95 | Calls |");
+    sections.push("| :--- | :--- | :--- | ---: | ---: | ---: |");
+  }
 
   for (const node of sorted) {
     const flags = [node.hasAnomaly ? "⚠ anomaly" : "", node.hasError ? "✗ error" : ""]
       .filter(Boolean)
       .join(", ");
     const nameCell = flags ? `${node.functionName} *(${flags})*` : node.functionName;
-    sections.push(
-      `| ${nameCell} | ${node.agentId} | \`${rel(node.file)}:${node.line}\` | ${durationLabel(node.avgDurationMs)} | ${durationLabel(node.p95DurationMs)} | ${node.callCount} |`,
-    );
+    if (hasDescriptions) {
+      sections.push(
+        `| ${nameCell} | ${node.description ?? ""} | ${node.agentId} | \`${rel(node.file)}:${node.line}\` | ${durationLabel(node.avgDurationMs)} | ${durationLabel(node.p95DurationMs)} | ${node.callCount} |`,
+      );
+    } else {
+      sections.push(
+        `| ${nameCell} | ${node.agentId} | \`${rel(node.file)}:${node.line}\` | ${durationLabel(node.avgDurationMs)} | ${durationLabel(node.p95DurationMs)} | ${node.callCount} |`,
+      );
+    }
   }
 
   sections.push("");
@@ -296,7 +314,9 @@ export function buildMarkdownDoc(
     sections.push("| Function | Agent | File |");
     sections.push("| :--- | :--- | :--- |");
     for (const node of anomalies) {
-      sections.push(`| ${node.functionName} | ${node.agentId} | \`${rel(node.file)}:${node.line}\` |`);
+      sections.push(
+        `| ${node.functionName} | ${node.agentId} | \`${rel(node.file)}:${node.line}\` |`,
+      );
     }
     sections.push("");
   }

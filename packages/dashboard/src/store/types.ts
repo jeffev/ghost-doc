@@ -21,6 +21,8 @@ export interface GraphNode {
   agentId: string;
   /** File path where the function lives */
   file: string;
+  /** Optional human-readable description from docstring or @trace option */
+  description?: string;
   /** Total number of recorded calls */
   callCount: number;
   /** Average duration across all calls (ms) */

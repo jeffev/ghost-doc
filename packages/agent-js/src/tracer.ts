@@ -27,6 +27,12 @@ export interface TracerConfig {
   sanitize?: SanitizeConfig;
   /** Maximum number of events to buffer while offline. Default: 500 */
   bufferSize?: number;
+  /**
+   * Fraction of spans to emit (0.0–1.0). Default: 1.0 (emit all).
+   * For example, 0.1 emits ~10% of spans. Sampled-out spans are silently dropped.
+   * Root spans and their entire call tree are sampled together (head-based sampling).
+   */
+  sampleRate?: number;
 }
 
 export interface TraceContext {
@@ -69,6 +75,7 @@ export class TracerInstance {
       enabled: config.enabled ?? true,
       sanitize: config.sanitize ?? [...DEFAULT_SANITIZE_KEYS],
       bufferSize: config.bufferSize ?? 500,
+      sampleRate: Math.max(0, Math.min(1, config.sampleRate ?? 1.0)),
     };
 
     this._buffer = new RingBuffer<TraceEvent>(this._config.bufferSize);
@@ -86,6 +93,7 @@ export class TracerInstance {
   /** Emit a fully-assembled TraceEvent directly (useful for advanced integrations). */
   emit(event: TraceEvent): void {
     if (!this._config.enabled) return;
+    if (this._config.sampleRate < 1 && Math.random() > this._config.sampleRate) return;
     this._transport.send(event);
   }
 
@@ -128,13 +136,8 @@ export class TracerInstance {
    * });
    * ```
    */
-  contextFromHeaders(
-    headers: Record<string, string | string[] | undefined>,
-  ): TraceContext | null {
-    const raw =
-      headers[TRACE_ID_HEADER] ??
-      headers["X-Trace-Id"] ??
-      headers["x-trace-id"];
+  contextFromHeaders(headers: Record<string, string | string[] | undefined>): TraceContext | null {
+    const raw = headers[TRACE_ID_HEADER] ?? headers["X-Trace-Id"] ?? headers["x-trace-id"];
     const traceId = Array.isArray(raw) ? raw[0] : raw;
     if (typeof traceId !== "string" || traceId.trim() === "") return null;
     return { traceId: traceId.trim(), spanId: newSpanId() };

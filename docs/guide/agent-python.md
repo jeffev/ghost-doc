@@ -19,6 +19,7 @@ tracer = Tracer(
     sanitize=frozenset({"password", "token", "secret", "api_key"}),
     buffer_size=500,                             # max spans buffered when Hub unreachable
     enabled=True,                               # False = decorators become no-ops
+    sample_rate=1.0,                            # 0.0–1.0 fraction of calls to emit (default: 1.0)
 )
 ```
 
@@ -89,6 +90,19 @@ Every traced call emits the same `TraceEvent` schema as the JS agent:
 - `time.perf_counter()` timing
 - Exception type, message, and traceback (if raised)
 
+## Head-based sampling
+
+Emit only a fraction of calls to reduce Hub bandwidth and storage:
+
+```python
+tracer = Tracer(
+    agent_id="high-traffic-api",
+    sample_rate=0.1,  # emit ~10% of calls
+)
+```
+
+`sample_rate` is clamped to `[0.0, 1.0]`. Defaults to `1.0` (emit every call). Sampling is evaluated per call using `random.random()`.
+
 ## Sanitization
 
 ```python
@@ -98,7 +112,18 @@ tracer = Tracer(
 )
 ```
 
-Default blocklist: `password`, `token`, `secret`, `authorization`, `api_key`.
+Default blocklist covers common credential fields:
+
+```python
+{
+    "password", "token", "secret", "authorization", "api_key",
+    "bearer", "jwt", "access_token", "refresh_token", "session",
+    "cookie", "client_secret", "cvv", "pin", "private_key",
+    "passphrase", "auth", "credentials",
+}
+```
+
+In addition to key-based redaction, the sanitizer also detects **sensitive values by pattern**: JWT strings (three Base64 segments separated by `.`) and sequences of 13–19 digits that look like credit card numbers are replaced with `"[REDACTED]"` regardless of the key name.
 
 ## Lifecycle
 

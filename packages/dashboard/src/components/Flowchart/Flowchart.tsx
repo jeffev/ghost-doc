@@ -3,6 +3,7 @@ import { useDashboardStore } from "../../store/index.js";
 import type { GraphNode } from "../../store/types.js";
 import { useD3Graph, type MinimapUpdate } from "./useD3Graph.js";
 import { Minimap } from "./Minimap.js";
+import { useKeyboardShortcuts } from "../../hooks/useKeyboardShortcuts.js";
 
 /**
  * Full-screen D3 force-directed flowchart.
@@ -55,7 +56,7 @@ export function Flowchart(): JSX.Element {
     setMinimapUpdate(update);
   }, []);
 
-  const { svgRef, panToGraphPoint } = useD3Graph({
+  const { svgRef, panToGraphPoint, fitToScreen } = useD3Graph({
     data: graph,
     width: dims.width,
     height: dims.height,
@@ -66,6 +67,8 @@ export function Flowchart(): JSX.Element {
     onNodeHover: setHoveredNode,
     onMinimapUpdate: handleMinimapUpdate,
   });
+
+  useKeyboardShortcuts(fitToScreen);
 
   const isEmpty = graph.nodes.length === 0;
 
@@ -112,9 +115,7 @@ export function Flowchart(): JSX.Element {
       )}
 
       {/* Node tooltip */}
-      {hoveredNode !== null && (
-        <NodeTooltip node={hoveredNode} x={cursorPos.x} y={cursorPos.y} />
-      )}
+      {hoveredNode !== null && <NodeTooltip node={hoveredNode} x={cursorPos.x} y={cursorPos.y} />}
     </div>
   );
 }
@@ -123,15 +124,7 @@ export function Flowchart(): JSX.Element {
 // NodeTooltip
 // ---------------------------------------------------------------------------
 
-function NodeTooltip({
-  node,
-  x,
-  y,
-}: {
-  node: GraphNode;
-  x: number;
-  y: number;
-}): JSX.Element {
+function NodeTooltip({ node, x, y }: { node: GraphNode; x: number; y: number }): JSX.Element {
   // Offset so the tooltip doesn't sit under the cursor.
   const offsetX = 14;
   const offsetY = -10;
@@ -166,15 +159,16 @@ function NodeTooltip({
 
       {(node.hasError || node.hasAnomaly || node.isSlow) && (
         <div className="flex gap-2 mt-1.5">
-          {node.hasError && (
-            <span className="text-red-400 font-semibold">error</span>
-          )}
+          {node.hasError && <span className="text-red-400 font-semibold">error</span>}
           {node.hasAnomaly && (
-            <span className="text-orange-400 font-semibold">anomaly</span>
+            <span
+              className="text-orange-400 font-semibold cursor-help"
+              title="Anomaly: function returned a different type than previous calls"
+            >
+              anomaly
+            </span>
           )}
-          {node.isSlow && (
-            <span className="text-yellow-500 font-semibold">slow</span>
-          )}
+          {node.isSlow && <span className="text-yellow-500 font-semibold">slow</span>}
         </div>
       )}
     </div>

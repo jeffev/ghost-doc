@@ -32,13 +32,13 @@ The Hub listens on **port 3001** by default and serves both the WebSocket API an
 
 ## CLI commands
 
-| Command | Description |
-| :--- | :--- |
-| `ghost-doc start` | Start Hub + Dashboard |
-| `ghost-doc stop` | Graceful shutdown |
-| `ghost-doc status` | Show connected agents and trace count |
-| `ghost-doc export` | Export traces (see [Exporter](./exporter)) |
-| `ghost-doc snapshot` | Save current traces to disk |
+| Command              | Description                                |
+| :------------------- | :----------------------------------------- |
+| `ghost-doc start`    | Start Hub + Dashboard                      |
+| `ghost-doc stop`     | Graceful shutdown                          |
+| `ghost-doc status`   | Show connected agents and trace count      |
+| `ghost-doc export`   | Export traces (see [Exporter](./exporter)) |
+| `ghost-doc snapshot` | Save current traces to disk                |
 
 ## Configuration file
 
@@ -52,24 +52,26 @@ The Hub reads `~/.ghost-doc/config.json` on startup:
 }
 ```
 
-| Key | Default | Description |
-| :--- | :--- | :--- |
-| `port` | `3001` | HTTP and WebSocket port |
-| `sanitizeKeys` | `["password","token","secret","authorization","api_key"]` | Keys redacted at Hub boundary (defense-in-depth) |
-| `flushIntervalMs` | `30000` | Interval to flush traces to `~/.ghost-doc/traces/` |
+| Key                 | Default                                                   | Description                                                                                                             |
+| :------------------ | :-------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------- |
+| `port`              | `3001`                                                    | HTTP and WebSocket port                                                                                                 |
+| `sanitizeKeys`      | `["password","token","secret","authorization","api_key"]` | Keys redacted at Hub boundary (defense-in-depth)                                                                        |
+| `flushIntervalMs`   | `30000`                                                   | Interval to flush traces to `~/.ghost-doc/traces/`                                                                      |
+| `maxSpansPerSecond` | `500`                                                     | Per-agent rate limit. Spans exceeding this rate are dropped; the agent is notified via a `rate_limit_exceeded` message. |
 
 ## REST API overview
 
 See the full reference → [Hub REST API](/api/hub-rest).
 
-| Endpoint | Description |
-| :--- | :--- |
-| `GET /health` | `{ status, agents, traces_total }` |
-| `GET /traces` | Last N traces (`?limit=100&agent_id=frontend`) |
-| `GET /traces/:trace_id` | Full call tree for a distributed trace |
-| `POST /snapshot` | Save trace buffer to disk |
-| `GET /snapshots` | List saved snapshots |
-| `GET /snapshots/:id` | Load a specific snapshot |
+| Endpoint                | Description                                                           |
+| :---------------------- | :-------------------------------------------------------------------- |
+| `GET /health`           | `{ status, agents, traces_total }`                                    |
+| `GET /traces`           | Last N traces (`?limit=100&agent_id=frontend`)                        |
+| `GET /traces/:trace_id` | Full call tree for a distributed trace                                |
+| `POST /snapshot`        | Save trace buffer to disk                                             |
+| `GET /snapshots`        | List saved snapshots                                                  |
+| `GET /snapshots/:id`    | Load a specific snapshot                                              |
+| `GET /export`           | Export the current call graph (`?format=html\|markdown&project=Name`) |
 
 ## Trace storage
 

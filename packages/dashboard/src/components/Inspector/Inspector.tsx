@@ -1,7 +1,8 @@
-import { useCallback, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { useDashboardStore, selectNode } from "../../store/index.js";
 import type { StoredSpan } from "../../store/types.js";
 import { Sparkline } from "./Sparkline.js";
+import { useVirtualList } from "../../hooks/useVirtualList.js";
 
 /**
  * Right-panel deep-dive inspector.
@@ -14,6 +15,13 @@ export function Inspector(): JSX.Element | null {
   const spans = store.selectedNodeSpans();
 
   const [expandedSpanId, setExpandedSpanId] = useState<string | null>(null);
+
+  const COLLAPSED_ROW_HEIGHT = 36;
+  const virtual = useVirtualList({
+    itemCount: spans.length,
+    rowHeight: COLLAPSED_ROW_HEIGHT,
+    overscan: 8,
+  });
 
   if (node === undefined || selectedNodeId === null) {
     return (
@@ -36,19 +44,20 @@ export function Inspector(): JSX.Element | null {
             {node.agentId}
           </span>
           {node.hasAnomaly && (
-            <span className="text-xs text-anomaly font-semibold animate-pulse">⚠ anomaly</span>
+            <span
+              className="text-xs text-anomaly font-semibold animate-pulse cursor-help"
+              title="Anomaly detected: this function returned a different data type than previous calls. This may indicate a bug or unexpected code path."
+            >
+              ⚠ anomaly
+            </span>
           )}
-          {node.hasError && (
-            <span className="text-xs text-anomaly font-semibold">✗ error</span>
-          )}
+          {node.hasError && <span className="text-xs text-anomaly font-semibold">✗ error</span>}
         </div>
         <h2 className="text-white font-mono text-sm font-semibold break-all">
           {node.functionName}
         </h2>
         {node.latestSpan.source.description !== undefined && (
-          <p className="text-gray-300 text-xs mt-1 italic">
-            {node.latestSpan.source.description}
-          </p>
+          <p className="text-gray-300 text-xs mt-1 italic">{node.latestSpan.source.description}</p>
         )}
         <p className="text-gray-500 text-xs mt-0.5 break-all">{node.latestSpan.source.file}</p>
       </div>
@@ -64,36 +73,38 @@ export function Inspector(): JSX.Element | null {
         </div>
       </div>
 
-      {/* Call list */}
-      <div className="flex-1 overflow-y-auto">
+      {/* Call list — virtualized for performance with large span counts */}
+      <div
+        ref={virtual.containerRef as React.RefObject<HTMLDivElement>}
+        className="flex-1 overflow-y-auto"
+        onScroll={virtual.onScroll}
+      >
         {spans.length === 0 ? (
           <p className="text-gray-600 text-xs px-4 py-3">No calls recorded yet.</p>
         ) : (
-          spans.map((span) => (
-            <SpanRow
-              key={span.span_id}
-              span={span}
-              isExpanded={expandedSpanId === span.span_id}
-              onToggle={() =>
-                setExpandedSpanId((prev) => (prev === span.span_id ? null : span.span_id))
-              }
-            />
-          ))
+          <div style={{ height: virtual.totalHeight, position: "relative" }}>
+            <div style={{ position: "absolute", top: virtual.offsetTop, width: "100%" }}>
+              {spans.slice(virtual.startIndex, virtual.endIndex).map((span) => (
+                <SpanRow
+                  key={span.span_id}
+                  span={span}
+                  isExpanded={expandedSpanId === span.span_id}
+                  onToggle={() =>
+                    setExpandedSpanId((prev) => (prev === span.span_id ? null : span.span_id))
+                  }
+                />
+              ))}
+            </div>
+          </div>
         )}
       </div>
 
       {/* Footer actions */}
       {spans.length > 0 && (
         <div className="px-4 py-2 border-t border-border flex gap-2 flex-wrap">
-          <CopyButton
-            label="Copy trace JSON"
-            value={JSON.stringify(spans[0], null, 2)}
-          />
+          <CopyButton label="Copy trace JSON" value={JSON.stringify(spans[0], null, 2)} />
           {spans[0] !== undefined && generateCurl(spans[0]) !== null && (
-            <CopyButton
-              label="Copy as curl"
-              value={generateCurl(spans[0])!}
-            />
+            <CopyButton label="Copy as curl" value={generateCurl(spans[0])!} />
           )}
         </div>
       )}
@@ -141,7 +152,14 @@ function SpanRow({ span, isExpanded, onToggle }: SpanRowProps): JSX.Element {
           {Math.round(span.timing.duration_ms)} ms
         </span>
         {hasError && <span className="text-anomaly text-xs ml-2">✗</span>}
-        {span.anomaly && !hasError && <span className="text-warn text-xs ml-2">⚠</span>}
+        {span.anomaly && !hasError && (
+          <span
+            className="text-warn text-xs ml-2 cursor-help"
+            title="This call returned a different type than expected"
+          >
+            ⚠
+          </span>
+        )}
       </div>
 
       {isExpanded && (

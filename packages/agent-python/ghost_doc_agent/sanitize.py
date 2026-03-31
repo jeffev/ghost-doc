@@ -4,6 +4,7 @@ Matching keys are replaced with the string "[REDACTED]".
 """
 from __future__ import annotations
 
+import re
 from typing import Any
 
 DEFAULT_SANITIZE_KEYS: frozenset[str] = frozenset(
@@ -15,12 +16,44 @@ DEFAULT_SANITIZE_KEYS: frozenset[str] = frozenset(
         "authorization",
         "api_key",
         "apikey",
+        "apitoken",
+        "api_token",
         "auth",
+        "auth_token",
+        "access_token",
+        "refresh_token",
+        "id_token",
+        "bearer",
+        "jwt",
         "credential",
+        "credentials",
         "private_key",
+        "privatekey",
+        "client_secret",
+        "client_id",
+        "session",
+        "session_id",
+        "sessionid",
+        "cookie",
+        "set_cookie",
+        "x_api_key",
         "ssn",
+        "social_security",
         "credit_card",
+        "card_number",
+        "cvv",
+        "pin",
+        "bank_account",
+        "routing_number",
     }
+)
+
+# Regex patterns applied to string *values* to detect secrets regardless of key name.
+_SECRET_VALUE_PATTERNS: tuple[re.Pattern[str], ...] = (
+    # JWT: three base64url segments separated by dots
+    re.compile(r"^[A-Za-z0-9_-]{2,}(?:\.[A-Za-z0-9_-]{2,}){2}$"),
+    # Bare credit-card: 13-19 digits with optional spaces/dashes
+    re.compile(r"^\d{4}[\s\-]?\d{4}[\s\-]?\d{4}[\s\-]?\d{1,7}$"),
 )
 
 _REDACTED = "[REDACTED]"
@@ -52,8 +85,13 @@ def sanitize_deep(
     if _seen is None:
         _seen = set()
 
-    # Primitives — return as-is
-    if value is None or isinstance(value, (bool, int, float, str, bytes)):
+    # Primitives — check strings for secret patterns, return others as-is
+    if value is None or isinstance(value, (bool, int, float, bytes)):
+        return value
+    if isinstance(value, str):
+        stripped = value.strip()
+        if any(p.match(stripped) for p in _SECRET_VALUE_PATTERNS):
+            return _REDACTED
         return value
 
     obj_id = id(value)
@@ -64,7 +102,9 @@ def sanitize_deep(
     try:
         if isinstance(value, dict):
             return {
-                k: _REDACTED if k.lower() in keys else sanitize_deep(v, keys, _seen=_seen)
+                k: _REDACTED
+                if k.lower() in keys
+                else sanitize_deep(v, keys, _seen=_seen)
                 for k, v in value.items()
             }
 

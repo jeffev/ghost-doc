@@ -39,7 +39,11 @@ User clicks button
 - **Anomaly detection** — automatically flags when a function's return type changes unexpectedly
 - **Deep-dive inspector** — click any node to see every recorded call: inputs, outputs, stack traces, and a duration histogram
 - **Time-travel debugger** — scrub back through history to replay your app's state at any moment
-- **Privacy-first** — passwords, tokens, and secrets are redacted before leaving your process
+- **Privacy-first** — passwords, tokens, JWTs, and credit card numbers redacted before leaving your process — by key name and by value pattern
+- **Head-based sampling** — emit only a fraction of calls to reduce bandwidth on high-traffic services
+- **Keyboard shortcuts** — `F` fits the graph, `Esc` closes the inspector, `Space` toggles time-travel, and more
+- **One-click export** — download self-contained HTML or Markdown directly from the dashboard header
+- **HTTP middleware** — drop-in Express and Fastify middleware for automatic distributed trace propagation
 - **Language-agnostic** — JavaScript/TypeScript and Python agents today; Go, Rust, Java, C#, and others can implement the open wire format
 - **Export anywhere** — Markdown/Mermaid, self-contained HTML, Notion, Obsidian, or Confluence
 
@@ -72,6 +76,7 @@ pnpm ghost-doc start
 Open `http://localhost:3001` in your browser.
 
 > **Dev mode (hot-reload):** If you're working on the dashboard source, run the Vite dev server in parallel instead:
+>
 > ```bash
 > # Terminal 1 — Hub
 > pnpm ghost-doc start
@@ -181,10 +186,11 @@ Requires Python 3.10+.
 import { createTracer } from "@ghost-doc/agent-js";
 
 const tracer = createTracer({
-  agentId: "frontend",                   // identifies this agent in the dashboard
-  hubUrl: "ws://localhost:3001/agent",   // default, can be omitted
+  agentId: "frontend", // identifies this agent in the dashboard
+  hubUrl: "ws://localhost:3001/agent", // default, can be omitted
   enabled: process.env.NODE_ENV !== "test",
   sanitize: ["password", "token", "secret", "authorization"],
+  sampleRate: 1.0, // 0.0–1.0; default 1.0 emits every call
 });
 ```
 
@@ -198,6 +204,7 @@ tracer = Tracer(
     hub_url="ws://localhost:3001/agent",  # default
     sanitize=frozenset({"password", "token", "secret"}),
     enabled=True,
+    sample_rate=1.0,                      # 0.0–1.0; default 1.0 emits every call
 )
 ```
 
@@ -277,13 +284,22 @@ const runQuery = tracer.wrap(db.execute.bind(db), "db.execute");
 
 ### Sanitization
 
-Ghost Doc sanitizes sensitive data before it ever leaves your process. By default, any key named `password`, `token`, `secret`, or `authorization` is replaced with `"[REDACTED]"` — recursively, no matter how deep in a nested object.
+Ghost Doc sanitizes sensitive data before it ever leaves your process. The default blocklist covers the most common credential and secret fields:
+
+```
+password, token, secret, authorization, api_key, bearer, jwt,
+access_token, refresh_token, session, cookie, client_secret,
+cvv, pin, private_key, passphrase, auth, credentials,
+x-api-key, x-auth-token
+```
+
+In addition, the sanitizer detects **secret values by pattern** — JWT strings and sequences of 13–19 digits (credit card numbers) are redacted regardless of their key name.
 
 ```ts
 // Default behavior — covers the most common cases
 const tracer = createTracer({ agentId: "api" });
 
-// Custom blocklist
+// Custom blocklist (merged with defaults)
 const tracer = createTracer({
   agentId: "api",
   sanitize: ["password", "token", "ssn", "creditCard", "apiKey"],
@@ -303,14 +319,43 @@ const tracer = createTracer({
 
 ### Distributed tracing across services
 
-When a request spans multiple services, Ghost Doc links them automatically using the `x-trace-id` HTTP header.
+When a request spans multiple services, Ghost Doc links them automatically using the `X-Trace-Id` HTTP header.
+
+The easiest setup uses the built-in middleware helpers:
+
+**Express:**
+
+```ts
+import express from "express";
+import { createTracer, createExpressMiddleware } from "@ghost-doc/agent-js";
+
+const tracer = createTracer({ agentId: "inventory-service" });
+const app = express();
+
+app.use(createExpressMiddleware(tracer));
+// All route handlers automatically inherit the incoming trace context.
+```
+
+**Fastify:**
+
+```ts
+import Fastify from "fastify";
+import { createTracer, createFastifyPlugin } from "@ghost-doc/agent-js";
+
+const tracer = createTracer({ agentId: "inventory-service" });
+const fastify = Fastify();
+
+await fastify.register(createFastifyPlugin(tracer));
+```
+
+For manual propagation, forward the header yourself:
 
 ```ts
 import { createTracer, TRACE_ID_HEADER } from "@ghost-doc/agent-js";
 
 const tracer = createTracer({ agentId: "api-gateway" });
 
-// Outgoing request — propagate the trace ID
+// Outgoing request — propagate the active trace ID downstream
 @tracer.trace()
 async function callInventoryService(productId: string) {
   return fetch(`http://inventory/product/${productId}`, {
@@ -319,19 +364,7 @@ async function callInventoryService(productId: string) {
 }
 ```
 
-```ts
-// Receiving service — reads the trace ID from the incoming header
-const tracer = createTracer({ agentId: "inventory-service" });
-
-app.get("/product/:id", (req, res) => {
-  tracer.runWithTraceId(req.headers[TRACE_ID_HEADER], async () => {
-    const product = await tracedGetProduct(req.params.id);
-    res.json(product);
-  });
-});
-```
-
-The dashboard will automatically draw cross-service edges and label them as distributed traces.
+The dashboard automatically draws cross-service edges and labels them as distributed traces.
 
 ---
 
@@ -362,11 +395,11 @@ The default view. Each instrumented function becomes a node; arrows show call di
 
 **Visual cues**
 
-| Visual | Meaning |
-|---|---|
-| Red fill / red ring | Function threw an error |
-| Dashed ring | Anomaly detected (return type changed) |
-| Orange dashed ring | Function is in the top 5% slowest (P95) |
+| Visual              | Meaning                                        |
+| ------------------- | ---------------------------------------------- |
+| Red fill / red ring | Function threw an error                        |
+| Dashed ring         | Anomaly detected (return type changed)         |
+| Orange dashed ring  | Function is in the top 5% slowest (P95)        |
 | Colored node border | Agent identity (consistent color per agent ID) |
 
 **Controls**
@@ -376,6 +409,17 @@ The default view. Each instrumented function becomes a node; arrows show call di
 - **Highlight node…** — type any string to dim non-matching nodes and glow matches; view auto-pans to the first result
 - **Filter function…** — removes non-matching nodes entirely from the graph
 - Hover any node to see a tooltip with call stats and the function's description
+
+**Keyboard shortcuts**
+
+| Key       | Action                                   |
+| --------- | ---------------------------------------- |
+| `Esc`     | Close the inspector panel                |
+| `F`       | Fit the graph to the screen              |
+| `/`       | Focus the function filter input          |
+| `V`       | Toggle between Flowchart and Flame graph |
+| `Space`   | Play / pause time-travel                 |
+| `Shift+C` | Clear all traces                         |
 
 **Minimap**
 
@@ -402,10 +446,12 @@ Compare any two states of your application side by side — useful for before/af
 **To compare:**
 
 1. When your app is in a known baseline state, save a snapshot:
+
    ```bash
    pnpm ghost-doc snapshot
    # → Saved to ~/.ghost-doc/snapshots/<id>.json
    ```
+
    The snapshot file is plain JSON and can be committed to version control or shared with teammates.
 
 2. Continue using your app (or deploy a new version).
@@ -414,12 +460,12 @@ Compare any two states of your application side by side — useful for before/af
 
 The flowchart immediately shows a color-coded diff:
 
-| Color | Meaning |
-|---|---|
-| Green node | Function is new (not in the baseline) |
+| Color        | Meaning                                       |
+| ------------ | --------------------------------------------- |
+| Green node   | Function is new (not in the baseline)         |
 | Bright green | Function is at least 10% faster than baseline |
-| Orange | Function is at least 10% slower than baseline |
-| Default | Within ±10% of baseline (unchanged) |
+| Orange       | Function is at least 10% slower than baseline |
+| Default      | Within ±10% of baseline (unchanged)           |
 
 A legend appears in the top-left of the flowchart, including a count of functions that existed in the baseline but are no longer present. Click **Clear diff** in the header to exit comparison mode.
 
@@ -472,32 +518,32 @@ ghost-doc load <encoded> [options]     Decode and replay a shared snapshot
 
 ### `ghost-doc start`
 
-| Flag | Default | Description |
-|---|---|---|
-| `-p, --port <number>` | `3001` | Port for the Hub REST API and WebSocket server |
-| `--no-open` | — | Do not open `http://localhost:<port>` in the browser |
+| Flag                  | Default | Description                                          |
+| --------------------- | ------- | ---------------------------------------------------- |
+| `-p, --port <number>` | `3001`  | Port for the Hub REST API and WebSocket server       |
+| `--no-open`           | —       | Do not open `http://localhost:<port>` in the browser |
 
 ### `ghost-doc status`
 
-| Flag | Default | Description |
-|---|---|---|
-| `-p, --port <number>` | `3001` | Hub port to query |
+| Flag                  | Default | Description       |
+| --------------------- | ------- | ----------------- |
+| `-p, --port <number>` | `3001`  | Hub port to query |
 
 ### `ghost-doc export`
 
-| Flag | Default | Description |
-|---|---|---|
-| `-p, --port <number>` | `3001` | Hub port to pull traces from |
-| `-f, --format <fmt>` | `markdown` | `markdown` \| `html` \| `obsidian` \| `notion` \| `confluence` |
-| `-o, --output <path>` | `FLOW.md` / `FLOW.html` | Output file path (markdown and html only) |
-| `--project <name>` | `Project` | Project name used in the document title |
-| `--limit <number>` | `5000` | Maximum number of spans to fetch |
-| `--vault-path <path>` | — | Obsidian vault root (obsidian format) |
-| `--token <token>` | — | API token (notion / confluence) |
-| `--page-id <id>` | — | Target page ID (notion) |
-| `--url <url>` | — | Confluence base URL |
-| `--space <key>` | — | Confluence space key |
-| `--email <email>` | — | Confluence user email for Basic auth |
+| Flag                  | Default                 | Description                                                    |
+| --------------------- | ----------------------- | -------------------------------------------------------------- |
+| `-p, --port <number>` | `3001`                  | Hub port to pull traces from                                   |
+| `-f, --format <fmt>`  | `markdown`              | `markdown` \| `html` \| `obsidian` \| `notion` \| `confluence` |
+| `-o, --output <path>` | `FLOW.md` / `FLOW.html` | Output file path (markdown and html only)                      |
+| `--project <name>`    | `Project`               | Project name used in the document title                        |
+| `--limit <number>`    | `5000`                  | Maximum number of spans to fetch                               |
+| `--vault-path <path>` | —                       | Obsidian vault root (obsidian format)                          |
+| `--token <token>`     | —                       | API token (notion / confluence)                                |
+| `--page-id <id>`      | —                       | Target page ID (notion)                                        |
+| `--url <url>`         | —                       | Confluence base URL                                            |
+| `--space <key>`       | —                       | Confluence space key                                           |
+| `--email <email>`     | —                       | Confluence user email for Basic auth                           |
 
 **Examples**
 
@@ -560,15 +606,16 @@ For persistent settings, create `~/.ghost-doc/config.json`:
 {
   "port": 3001,
   "sanitizeKeys": ["password", "token", "apiKey", "ssn"],
-  "flushIntervalMs": 60000  // flush traces to disk every 60 s (0 = disabled)
+  "flushIntervalMs": 60000, // flush traces to disk every 60 s (0 = disabled)
 }
 ```
 
-| Key | Type | Default | Description |
-|---|---|---|---|
-| `port` | number | `3001` | Hub listen port |
-| `sanitizeKeys` | string[] | `[]` | Additional field names to redact (merged with agent's list) |
-| `flushIntervalMs` | number | `0` | Interval in ms to flush traces to `~/.ghost-doc/traces/`. `0` disables flushing |
+| Key                 | Type     | Default | Description                                                                                                      |
+| ------------------- | -------- | ------- | ---------------------------------------------------------------------------------------------------------------- |
+| `port`              | number   | `3001`  | Hub listen port                                                                                                  |
+| `sanitizeKeys`      | string[] | `[]`    | Additional field names to redact (merged with agent's list)                                                      |
+| `flushIntervalMs`   | number   | `0`     | Interval in ms to flush traces to `~/.ghost-doc/traces/`. `0` disables flushing                                  |
+| `maxSpansPerSecond` | number   | `500`   | Per-agent rate limit. Spans beyond this rate are dropped and the agent receives a `rate_limit_exceeded` message. |
 
 Traces are written as NDJSON to `~/.ghost-doc/traces/<timestamp>.jsonl`.
 
@@ -595,25 +642,25 @@ Every agent emits a `TraceEvent` JSON payload over WebSocket to `ws://localhost:
 ```jsonc
 {
   "schema_version": "1.0",
-  "trace_id": "uuid-v4",         // shared across all spans in one call chain
-  "span_id": "uuid-v4",          // unique to this function invocation
-  "parent_span_id": "uuid-v4",   // null for root spans
+  "trace_id": "uuid-v4", // shared across all spans in one call chain
+  "span_id": "uuid-v4", // unique to this function invocation
+  "parent_span_id": "uuid-v4", // null for root spans
   "source": {
     "agent_id": "api-server",
     "language": "js",
     "file": "src/services/user.ts",
     "line": 42,
     "function_name": "getUser",
-    "description": "Fetches a user from the database"  // optional
+    "description": "Fetches a user from the database", // optional
   },
   "timing": {
-    "started_at": 1710000000000,  // Unix milliseconds
-    "duration_ms": 38.4
+    "started_at": 1710000000000, // Unix milliseconds
+    "duration_ms": 38.4,
   },
   "input": [{ "id": "123" }],
   "output": { "id": "123", "name": "Alice" },
   "error": null,
-  "tags": {}
+  "tags": {},
 }
 ```
 
@@ -633,15 +680,16 @@ Any process that can open a WebSocket and send JSON can act as a Ghost Doc agent
 
 ## Hub REST API
 
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/health` | Server status, connected agent count, total traces |
-| `GET` | `/traces` | Recent spans (`?limit=100&agent_id=frontend`) |
-| `GET` | `/traces/:trace_id` | Full span tree for a distributed trace |
-| `POST` | `/snapshot` | Save current buffer to `~/.ghost-doc/snapshots/` |
-| `GET` | `/snapshots` | List saved snapshots |
-| `GET` | `/snapshots/:id` | Load a specific snapshot by ID |
-| `POST` | `/snapshots/load` | Push a snapshot body into the Hub and broadcast to all dashboards |
+| Method | Path                | Description                                                       |
+| ------ | ------------------- | ----------------------------------------------------------------- |
+| `GET`  | `/health`           | Server status, connected agent count, total traces                |
+| `GET`  | `/traces`           | Recent spans (`?limit=100&agent_id=frontend`)                     |
+| `GET`  | `/traces/:trace_id` | Full span tree for a distributed trace                            |
+| `POST` | `/snapshot`         | Save current buffer to `~/.ghost-doc/snapshots/`                  |
+| `GET`  | `/snapshots`        | List saved snapshots                                              |
+| `GET`  | `/snapshots/:id`    | Load a specific snapshot by ID                                    |
+| `POST` | `/snapshots/load`   | Push a snapshot body into the Hub and broadcast to all dashboards |
+| `GET`  | `/export`           | Export call graph (`?format=html\|markdown&project=Name`)         |
 
 ---
 
@@ -649,24 +697,24 @@ Any process that can open a WebSocket and send JSON can act as a Ghost Doc agent
 
 ### Official agents
 
-| Language | Package | Status |
-|---|---|---|
+| Language                | Package                     | Status    |
+| ----------------------- | --------------------------- | --------- |
 | JavaScript / TypeScript | `@ghost-doc/agent-js` (npm) | ✅ Stable |
-| Python | `ghost-doc-agent` (PyPI) | ✅ Stable |
+| Python                  | `ghost-doc-agent` (PyPI)    | ✅ Stable |
 
 ### Community / planned agents
 
 The wire format is an open JSON-over-WebSocket protocol. Any language that can open a WebSocket connection can act as a Ghost Doc agent. The following `language` values are accepted by the Hub's schema:
 
-| Value | Intended use |
-|---|---|
-| `"js"` | JavaScript / TypeScript |
-| `"python"` | Python |
-| `"go"` | Go |
-| `"rust"` | Rust |
-| `"java"` | Java / Kotlin |
-| `"csharp"` | C# / .NET |
-| `"other"` | Anything else |
+| Value      | Intended use            |
+| ---------- | ----------------------- |
+| `"js"`     | JavaScript / TypeScript |
+| `"python"` | Python                  |
+| `"go"`     | Go                      |
+| `"rust"`   | Rust                    |
+| `"java"`   | Java / Kotlin           |
+| `"csharp"` | C# / .NET               |
+| `"other"`  | Anything else           |
 
 To build an agent for a new language, see the [Wire format](#wire-format) section and the [Adding a new language agent](#adding-a-new-language-agent) guide above. We welcome community-maintained agents — open an issue to list yours here.
 

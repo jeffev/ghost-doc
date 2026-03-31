@@ -7,25 +7,25 @@ Every agent (JS or Python) emits a `TraceEvent` JSON payload for each traced fun
 ```typescript
 interface TraceEvent {
   schema_version: "1.0";
-  trace_id: string;           // UUID v4 — shared across a full call chain
-  span_id: string;            // UUID v4 — unique per function call
+  trace_id: string; // UUID v4 — shared across a full call chain
+  span_id: string; // UUID v4 — unique per function call
   parent_span_id: string | null; // null for root spans
   source: {
-    agent_id: string;         // e.g. "frontend-react", "backend-python"
+    agent_id: string; // e.g. "frontend-react", "backend-python"
     language: "js" | "python";
-    file: string;             // absolute file path
-    line: number;             // line number where the function is defined
-    function_name: string;    // function or method name (or custom label)
-    description?: string;     // optional — shown in tooltip & inspector
+    file: string; // absolute file path
+    line: number; // line number where the function is defined
+    function_name: string; // function or method name (or custom label)
+    description?: string; // optional — shown in tooltip & inspector
   };
   timing: {
-    started_at: number;       // Unix milliseconds
-    duration_ms: number;      // wall-clock duration
+    started_at: number; // Unix milliseconds
+    duration_ms: number; // wall-clock duration
   };
-  input: unknown[];           // sanitized function arguments
-  output: unknown;            // sanitized return value
+  input: unknown[]; // sanitized function arguments
+  output: unknown; // sanitized return value
   error: {
-    type: string;             // e.g. "TypeError", "ValueError"
+    type: string; // e.g. "TypeError", "ValueError"
     message: string;
     stack: string;
   } | null;
@@ -48,6 +48,7 @@ For distributed traces across multiple agents (e.g. a JS frontend calling a Pyth
 ### `source.description`
 
 Optional human-readable description for this function. Shown in:
+
 - **Node tooltip** — hover over any node in the flowchart
 - **Inspector panel** — click any node to open the detail view
 
@@ -57,7 +58,10 @@ Optional human-readable description for this function. Shown in:
 
 ### `input` / `output`
 
-Serialized via `JSON.stringify` (JS) or `json.dumps` with `repr()` fallback (Python). Sensitive keys listed in `sanitize` are replaced with `"[REDACTED]"` before serialization.
+Serialized via `JSON.stringify` (JS) or `json.dumps` with `repr()` fallback (Python). Two layers of sanitization are applied before serialization:
+
+1. **Key-based** — any key matching the `sanitize` blocklist (e.g. `password`, `token`, `api_key`) is replaced with `"[REDACTED]"`, recursively.
+2. **Value-pattern** — string values are scanned for known secret patterns regardless of their key name: JWT strings (three Base64 segments separated by `.`) and digit sequences of 13–19 characters that match credit card formats are also replaced with `"[REDACTED]"`.
 
 ### `error`
 
@@ -94,11 +98,13 @@ export const TraceEventSchema = z.object({
   }),
   input: z.array(z.unknown()),
   output: z.unknown(),
-  error: z.object({
-    type: z.string(),
-    message: z.string(),
-    stack: z.string(),
-  }).nullable(),
+  error: z
+    .object({
+      type: z.string(),
+      message: z.string(),
+      stack: z.string(),
+    })
+    .nullable(),
   tags: z.record(z.string()),
 });
 ```

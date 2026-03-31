@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import { useDashboardStore, selectTraceIds } from "../../store/index.js";
 import { useFlameData, type FlameData, type FlameSpan } from "./useFlameData.js";
+import { useKeyboardShortcuts } from "../../hooks/useKeyboardShortcuts.js";
 
 // ---------------------------------------------------------------------------
 // Layout constants
@@ -10,27 +11,10 @@ const ROW_HEIGHT = 24;
 const MIN_CANVAS_WIDTH = 600;
 
 // ---------------------------------------------------------------------------
-// Agent color palette (deterministic hash)
+// Agent color palette (imported from central module)
 // ---------------------------------------------------------------------------
 
-const PALETTE = [
-  "#7c3aed", // violet
-  "#2563eb", // blue
-  "#059669", // emerald
-  "#d97706", // amber
-  "#0891b2", // cyan
-  "#65a30d", // lime
-  "#9333ea", // purple
-  "#0284c7", // sky
-];
-
-function agentColor(agentId: string): string {
-  let hash = 0;
-  for (let i = 0; i < agentId.length; i++) {
-    hash = (hash * 31 + agentId.charCodeAt(i)) & 0xffff;
-  }
-  return PALETTE[hash % PALETTE.length]!;
-}
+import { agentColor } from "../../colors.js";
 
 function truncate(text: string, maxChars: number): string {
   if (maxChars <= 1) return "";
@@ -64,6 +48,7 @@ export function FlameGraph(): JSX.Element {
   }, []);
 
   const flameData = useFlameData(store.spans, activeTraceId);
+  useKeyboardShortcuts();
 
   const handleSpanClick = useCallback(
     (fs: FlameSpan) => {
@@ -152,12 +137,7 @@ function FlameCanvas({
   const svgHeight = (data.maxDepth + 1) * ROW_HEIGHT + 8;
 
   return (
-    <svg
-      width={canvasWidth}
-      height={svgHeight}
-      className="block"
-      aria-label="Flame graph"
-    >
+    <svg width={canvasWidth} height={svgHeight} className="block" aria-label="Flame graph">
       {data.spans.map((fs) => (
         <SpanRect
           key={fs.spanId}
@@ -190,11 +170,7 @@ function SpanRect({
   const w = Math.max(fs.widthFrac * canvasWidth, 1);
   const y = fs.depth * ROW_HEIGHT;
 
-  const baseColor = fs.hasError
-    ? "#dc2626"
-    : fs.anomaly
-      ? "#f97316"
-      : agentColor(fs.agentId);
+  const baseColor = fs.hasError ? "#dc2626" : fs.anomaly ? "#f97316" : agentColor(fs.agentId);
 
   const CHARS_PER_PX = 7; // approximate monospace char width at 11px
   const labelMaxChars = Math.floor(w / CHARS_PER_PX) - 1;
@@ -212,15 +188,19 @@ function SpanRect({
       role="button"
       aria-label={`${fs.functionName} — ${durationLabel}`}
     >
-      <title>{[
-        fs.functionName,
-        fs.span.source.description,
-        `agent: ${fs.agentId}`,
-        `file: ${fs.file}`,
-        `duration: ${durationLabel}`,
-        fs.hasError ? "⚠ error" : null,
-        fs.anomaly ? "⚠ anomaly" : null,
-      ].filter(Boolean).join("\n")}</title>
+      <title>
+        {[
+          fs.functionName,
+          fs.span.source.description,
+          `agent: ${fs.agentId}`,
+          `file: ${fs.file}`,
+          `duration: ${durationLabel}`,
+          fs.hasError ? "⚠ error" : null,
+          fs.anomaly ? "⚠ anomaly" : null,
+        ]
+          .filter(Boolean)
+          .join("\n")}
+      </title>
 
       <rect
         x={x}

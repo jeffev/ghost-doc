@@ -9,7 +9,13 @@ import type {
   ViewMode,
   GraphDiff,
 } from "./types.js";
-import { buildGraphData, computeGraphDiff } from "./graph.js";
+import {
+  buildGraphData,
+  computeGraphDiff,
+  applySpanIncremental,
+  emptyAccumulators,
+  type GraphAccumulators,
+} from "./graph.js";
 
 // ---------------------------------------------------------------------------
 // Hub WebSocket message shapes
@@ -102,7 +108,15 @@ export interface DashboardStore {
 // Store implementation
 // ---------------------------------------------------------------------------
 
-export const useDashboardStore = create<DashboardStore>((set, get) => ({
+// Internal type — not part of the public DashboardStore interface.
+interface InternalStore extends DashboardStore {
+  _accs: GraphAccumulators;
+}
+
+export const useDashboardStore = create<InternalStore>((set, get) => ({
+  // ── Internal accumulators (not exposed via DashboardStore interface) ────────
+  _accs: emptyAccumulators(),
+
   // ── Spans ──────────────────────────────────────────────────────────────────
   spans: [],
 
@@ -110,7 +124,21 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
     set((state) => {
       const spans = [...state.spans, span];
       const rateWindow = pruneRateWindow([...state.rateWindow, span.received_at]);
-      const graph = buildVisibleGraph(spans, state.filter, state.timeTravel.seekTs);
+
+      // Use incremental update when in live mode with no groupBy.
+      // Fall back to full rebuild for time-travel or grouped views.
+      let graph: ReturnType<typeof buildVisibleGraph>;
+      if (state.timeTravel.seekTs === null && state.filter.groupBy === "none") {
+        const filtered = spanPassesFilter(span, state.filter);
+        if (filtered) {
+          graph = applySpanIncremental(span, state._accs, state.graph);
+        } else {
+          graph = state.graph; // span filtered out — graph unchanged
+        }
+      } else {
+        graph = buildVisibleGraph(spans, state.filter, state.timeTravel.seekTs);
+      }
+
       return {
         spans,
         graph,
@@ -121,12 +149,16 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
   },
 
   loadSnapshot(incoming) {
-    set((state) => {
-      const graph = buildVisibleGraph(incoming, state.filter, state.timeTravel.seekTs);
+    set((_state) => {
+      // Full rebuild on snapshot load; reset accumulators.
+      const accs = emptyAccumulators();
+      const graph = buildVisibleGraph(incoming, _state.filter, _state.timeTravel.seekTs);
       return {
         spans: incoming,
         graph,
-        graphDiff: state.compareGraph !== null ? computeGraphDiff(state.compareGraph, graph) : null,
+        _accs: accs,
+        graphDiff:
+          _state.compareGraph !== null ? computeGraphDiff(_state.compareGraph, graph) : null,
       };
     });
   },
@@ -138,6 +170,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       selectedNodeId: null,
       rateWindow: [],
       graphDiff: null,
+      _accs: emptyAccumulators(),
     });
   },
 
@@ -157,9 +190,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
     const [agentId, ...fnParts] = selectedNodeId.split(":");
     const functionName = fnParts.join(":");
     return spans
-      .filter(
-        (s) => s.source.agent_id === agentId && s.source.function_name === functionName,
-      )
+      .filter((s) => s.source.agent_id === agentId && s.source.function_name === functionName)
       .sort((a, b) => b.received_at - a.received_at);
   },
 
@@ -190,7 +221,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
   },
 
   tickPlayback() {
-    const { spans, timeTravel, filter } = get();
+    const { spans, timeTravel } = get();
     if (!timeTravel.isPlaying || timeTravel.seekTs === null) return;
 
     const TICK_MS = 1_000;
@@ -203,7 +234,8 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
         return {
           timeTravel: { ...state.timeTravel, seekTs: null, isPlaying: false },
           graph,
-          graphDiff: state.compareGraph !== null ? computeGraphDiff(state.compareGraph, graph) : null,
+          graphDiff:
+            state.compareGraph !== null ? computeGraphDiff(state.compareGraph, graph) : null,
         };
       });
     } else {
@@ -212,7 +244,8 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
         return {
           timeTravel: { ...state.timeTravel, seekTs: nextTs },
           graph,
-          graphDiff: state.compareGraph !== null ? computeGraphDiff(state.compareGraph, graph) : null,
+          graphDiff:
+            state.compareGraph !== null ? computeGraphDiff(state.compareGraph, graph) : null,
         };
       });
     }
@@ -230,9 +263,11 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
     set((state) => {
       const filter = { ...state.filter, ...partial };
       const graph = buildVisibleGraph(state.spans, filter, state.timeTravel.seekTs);
+      // Reset accumulators so they stay consistent with the new filtered view.
       return {
         filter,
         graph,
+        _accs: emptyAccumulators(),
         graphDiff: state.compareGraph !== null ? computeGraphDiff(state.compareGraph, graph) : null,
       };
     });
@@ -343,6 +378,25 @@ export function selectTraceIds(store: DashboardStore): string[] {
 // ---------------------------------------------------------------------------
 // Private helpers
 // ---------------------------------------------------------------------------
+
+/** Check whether a single span passes the current filter (for incremental updates). */
+function spanPassesFilter(span: StoredSpan, filter: FilterState): boolean {
+  if (filter.agentId !== null && span.source.agent_id !== filter.agentId) return false;
+  if (filter.functionName.trim() !== "") {
+    if (!span.source.function_name.toLowerCase().includes(filter.functionName.trim().toLowerCase()))
+      return false;
+  }
+  if (filter.tag.trim() !== "") {
+    const q = filter.tag.trim().toLowerCase();
+    if (
+      !Object.entries(span.tags).some(
+        ([k, v]) => k.toLowerCase().includes(q) || v.toLowerCase().includes(q),
+      )
+    )
+      return false;
+  }
+  return true;
+}
 
 function buildVisibleGraph(
   spans: StoredSpan[],

@@ -40,9 +40,13 @@ features:
     title: Python & TypeScript
     details: Identical decorator API for both languages. The Python agent auto-extracts your docstring as the node description — no extra configuration.
 
+  - icon: 🔒
+    title: Privacy-first sanitization
+    details: Passwords, tokens, JWTs, credit card numbers, and 20+ other credential patterns are redacted before leaving your process — by key name and by value pattern.
+
   - icon: 📤
     title: Export anywhere
-    details: Export your call graph to Markdown + Mermaid, Notion, Obsidian, or Confluence. All formats are updated automatically as your code evolves.
+    details: Download HTML or Markdown directly from the dashboard, or export to Notion, Obsidian, and Confluence via the CLI. One click, zero configuration.
 ---
 
 ## How it works

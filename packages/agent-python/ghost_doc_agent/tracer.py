@@ -27,6 +27,7 @@ from __future__ import annotations
 import asyncio
 import functools
 import inspect
+import random
 import time
 from contextvars import ContextVar, Token
 from typing import Any, Callable, NamedTuple, Optional, TypeVar, Union, overload
@@ -71,12 +72,14 @@ class Tracer:
         sanitize: Optional[frozenset[str]] = None,
         buffer_size: int = 500,
         enabled: bool = True,
+        sample_rate: float = 1.0,
     ) -> None:
         self.agent_id = agent_id
         self.hub_url = hub_url
         self.sanitize_keys = sanitize if sanitize is not None else DEFAULT_SANITIZE_KEYS
         self.buffer_size = buffer_size
         self.enabled = enabled
+        self.sample_rate = max(0.0, min(1.0, sample_rate))
 
         self._buffer: RingBuffer[TraceEvent] = RingBuffer(buffer_size)
         self._transport = WsTransport(hub_url, self._buffer)
@@ -203,6 +206,8 @@ class Tracer:
             output=sanitize_deep(output, self.sanitize_keys),
             error=error,
         )
+        if self.sample_rate < 1.0 and random.random() > self.sample_rate:
+            return
         self._transport.send(event)
 
     def _execute_sync(

@@ -1,4 +1,4 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useDashboardStore, selectAgentIds } from "../../store/index.js";
 import type { StoredSpan } from "../../store/types.js";
 import type { ViewMode } from "../../store/types.js";
@@ -72,9 +72,7 @@ export function Header(): JSX.Element {
           agentIds.map((id) => (
             <button
               key={id}
-              onClick={() =>
-                store.setFilter({ agentId: filter.agentId === id ? null : id })
-              }
+              onClick={() => store.setFilter({ agentId: filter.agentId === id ? null : id })}
               className={`text-xs px-2 py-0.5 rounded font-mono transition-colors ${
                 filter.agentId === id
                   ? "bg-accent text-white"
@@ -129,9 +127,7 @@ export function Header(): JSX.Element {
       {/* Group-by selector */}
       <select
         value={filter.groupBy}
-        onChange={(e) =>
-          store.setFilter({ groupBy: e.target.value as "none" | "agent" | "file" })
-        }
+        onChange={(e) => store.setFilter({ groupBy: e.target.value as "none" | "agent" | "file" })}
         className="text-xs bg-canvas border border-border rounded px-2 py-1 text-gray-300 focus:outline-none focus:border-accent"
         title="Group nodes by…"
         aria-label="Group by"
@@ -174,10 +170,23 @@ export function Header(): JSX.Element {
       <button
         onClick={handleClear}
         className="text-xs px-3 py-1 rounded bg-border text-gray-400 hover:bg-anomaly/30 hover:text-anomaly transition-colors"
-        title="Clear all traces"
+        title="Clear all traces (keyboard: Shift+C)"
       >
         Clear
       </button>
+
+      {/* Export */}
+      <ExportMenu />
+
+      {/* Keyboard shortcuts hint */}
+      <span
+        className="text-xs text-gray-600 cursor-help select-none"
+        title={
+          "Keyboard shortcuts:\n  Esc — close inspector\n  F — fit graph to screen\n  / — focus search\n  V — toggle view\n  Space — play/pause time-travel\n  Shift+C — clear traces"
+        }
+      >
+        ⌨
+      </span>
     </header>
   );
 }
@@ -235,6 +244,58 @@ function ViewToggle({
 // Connection status dot
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Export menu
+// ---------------------------------------------------------------------------
+
+function ExportMenu(): JSX.Element {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  // Close on outside click
+  const handleBlur = useCallback((e: React.FocusEvent<HTMLDivElement>) => {
+    if (!ref.current?.contains(e.relatedTarget as Node)) setOpen(false);
+  }, []);
+
+  const download = useCallback((format: "html" | "markdown") => {
+    const project = "GhostDoc";
+    const url = `/export?format=${format}&project=${encodeURIComponent(project)}`;
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${project}.${format === "html" ? "html" : "md"}`;
+    a.click();
+    setOpen(false);
+  }, []);
+
+  return (
+    <div className="relative" ref={ref} onBlur={handleBlur}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="text-xs px-3 py-1 rounded bg-border text-gray-400 hover:bg-accent/30 hover:text-accent transition-colors"
+        title="Export call graph"
+      >
+        Export ▾
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 w-36 bg-panel border border-border rounded shadow-lg z-50">
+          <button
+            onClick={() => download("html")}
+            className="w-full text-left text-xs px-3 py-2 text-gray-300 hover:bg-accent/20 hover:text-white transition-colors"
+          >
+            📄 HTML
+          </button>
+          <button
+            onClick={() => download("markdown")}
+            className="w-full text-left text-xs px-3 py-2 text-gray-300 hover:bg-accent/20 hover:text-white transition-colors border-t border-border"
+          >
+            📝 Markdown
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ConnectionDot({
   status,
 }: {
@@ -244,9 +305,7 @@ function ConnectionDot({
   return (
     <span className="flex items-center gap-1.5" title={label}>
       <span
-        className={`inline-block w-2 h-2 rounded-full ${color} ${
-          pulse ? "animate-pulse" : ""
-        }`}
+        className={`inline-block w-2 h-2 rounded-full ${color} ${pulse ? "animate-pulse" : ""}`}
       />
       <span className="text-xs text-gray-500">{label}</span>
     </span>

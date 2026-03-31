@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback, type RefObject } from "react";
 import * as d3 from "d3";
 import type { GraphData, GraphNode, GraphEdge, GraphDiff } from "../../store/types.js";
+import { agentColor } from "../../colors.js";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -31,29 +32,13 @@ export interface UseD3GraphResult {
   svgRef: RefObject<SVGSVGElement | null>;
   /** Smoothly pan the main view to center on a graph-space coordinate. */
   panToGraphPoint: (gx: number, gy: number) => void;
+  /** Fit all nodes into view with a smooth transition. */
+  fitToScreen: () => void;
 }
 
 // ---------------------------------------------------------------------------
 // Color helpers
 // ---------------------------------------------------------------------------
-
-const AGENT_COLORS = [
-  "#6366f1", "#22c55e", "#f59e0b", "#06b6d4",
-  "#ec4899", "#a855f7", "#14b8a6", "#f97316",
-];
-
-const agentColorCache = new Map<string, string>();
-let colorIdx = 0;
-
-function agentColor(agentId: string): string {
-  let color = agentColorCache.get(agentId);
-  if (color === undefined) {
-    color = AGENT_COLORS[colorIdx % AGENT_COLORS.length] ?? "#6366f1";
-    agentColorCache.set(agentId, color);
-    colorIdx++;
-  }
-  return color;
-}
 
 function nodeFill(node: GraphNode, diff: GraphDiff | null): string {
   if (diff !== null) {
@@ -133,6 +118,40 @@ export function useD3Graph({
       .transition()
       .duration(450)
       .call(zoomBehaviorRef.current.translateTo as never, gx, gy);
+  }, []);
+
+  // ── Fit all nodes into view ────────────────────────────────────────────────
+  const fitToScreen = useCallback(() => {
+    if (svgRef.current === null || zoomBehaviorRef.current === null || simRef.current === null)
+      return;
+    const nodes = simRef.current.nodes();
+    if (nodes.length === 0) return;
+
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
+    for (const n of nodes) {
+      const x = n.x ?? 0;
+      const y = n.y ?? 0;
+      if (x < minX) minX = x;
+      if (y < minY) minY = y;
+      if (x > maxX) maxX = x;
+      if (y > maxY) maxY = y;
+    }
+
+    const PAD = 80;
+    const { clientWidth: w, clientHeight: h } = svgRef.current;
+    const graphW = maxX - minX + PAD * 2;
+    const graphH = maxY - minY + PAD * 2;
+    const k = Math.min(w / graphW, h / graphH, 2);
+    const tx = w / 2 - (k * (minX + maxX)) / 2;
+    const ty = h / 2 - (k * (minY + maxY)) / 2;
+
+    d3.select(svgRef.current)
+      .transition()
+      .duration(500)
+      .call(zoomBehaviorRef.current.transform as never, d3.zoomIdentity.translate(tx, ty).scale(k));
   }, []);
 
   // ── Initial SVG setup (runs once on mount) ─────────────────────────────────
@@ -219,7 +238,10 @@ export function useD3Graph({
     const nodes: GraphNode[] = data.nodes.map((n) => {
       const pos = existing.get(n.id);
       const node: GraphNode = { ...n };
-      if (pos !== undefined) { node.x = pos.x; node.y = pos.y; }
+      if (pos !== undefined) {
+        node.x = pos.x;
+        node.y = pos.y;
+      }
       return node;
     });
 
@@ -227,7 +249,13 @@ export function useD3Graph({
 
     const sim = d3
       .forceSimulation<GraphNode>(nodes)
-      .force("link", d3.forceLink<GraphNode, GraphEdge>(edges).id((d) => d.id).distance(140))
+      .force(
+        "link",
+        d3
+          .forceLink<GraphNode, GraphEdge>(edges)
+          .id((d) => d.id)
+          .distance(140),
+      )
       .force("charge", d3.forceManyBody<GraphNode>().strength(-400))
       .force("center", d3.forceCenter(width / 2, height / 2))
       .force("collide", d3.forceCollide<GraphNode>(50))
@@ -288,9 +316,7 @@ export function useD3Graph({
             .on("mouseenter", (_event, d) => onNodeHoverRef.current(d))
             .on("mouseleave", () => onNodeHoverRef.current(null));
 
-          ng.append("circle")
-            .attr("r", 28)
-            .attr("stroke-width", 2);
+          ng.append("circle").attr("r", 28).attr("stroke-width", 2);
 
           ng.append("circle")
             .attr("class", "ring")
@@ -323,11 +349,13 @@ export function useD3Graph({
       );
 
     // Apply per-node visual attributes.
-    nodeSel.select<SVGCircleElement>("circle:first-of-type")
+    nodeSel
+      .select<SVGCircleElement>("circle:first-of-type")
       .attr("fill", (d) => nodeFill(d, diff))
       .attr("stroke", (d) => agentColor(d.agentId));
 
-    nodeSel.select<SVGCircleElement>("circle.ring")
+    nodeSel
+      .select<SVGCircleElement>("circle.ring")
       .attr("stroke", (d) => nodeRingStroke(d, selectedNodeId, diff))
       .attr("stroke-dasharray", (d) => ringDashArray(d, diff));
 
@@ -338,15 +366,21 @@ export function useD3Graph({
 
     // ── Simulation tick ────────────────────────────────────────────────────────
     sim.on("tick", () => {
-      edgeSel.select<SVGLineElement>("line")
+      edgeSel
+        .select<SVGLineElement>("line")
         .attr("x1", (d) => (d.source as unknown as GraphNode).x ?? 0)
         .attr("y1", (d) => (d.source as unknown as GraphNode).y ?? 0)
         .attr("x2", (d) => (d.target as unknown as GraphNode).x ?? 0)
         .attr("y2", (d) => (d.target as unknown as GraphNode).y ?? 0);
 
-      edgeSel.select<SVGTextElement>("text")
-        .attr("x", (d) => midpoint((d.source as unknown as GraphNode).x, (d.target as unknown as GraphNode).x))
-        .attr("y", (d) => midpoint((d.source as unknown as GraphNode).y, (d.target as unknown as GraphNode).y))
+      edgeSel
+        .select<SVGTextElement>("text")
+        .attr("x", (d) =>
+          midpoint((d.source as unknown as GraphNode).x, (d.target as unknown as GraphNode).x),
+        )
+        .attr("y", (d) =>
+          midpoint((d.source as unknown as GraphNode).y, (d.target as unknown as GraphNode).y),
+        )
         .text((d) => `${Math.round(d.avgDurationMs)}ms`);
 
       nodeSel.attr("transform", (d) => `translate(${d.x ?? 0},${d.y ?? 0})`);
@@ -360,8 +394,9 @@ export function useD3Graph({
       }
     });
 
-    return () => { sim.stop(); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => {
+      sim.stop();
+    };
   }, [data, width, height]);
 
   // ── Selection ring update (no simulation rebuild) ──────────────────────────
@@ -370,34 +405,32 @@ export function useD3Graph({
     d3.select(svgRef.current)
       .selectAll<SVGCircleElement, GraphNode>("circle.ring")
       .attr("stroke", (d) => nodeRingStroke(d, selectedNodeId, diff));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedNodeId]);
 
   // ── Diff color update ──────────────────────────────────────────────────────
   useEffect(() => {
     if (!initialized.current || svgRef.current === null) return;
     const root = d3.select(svgRef.current);
-    root.selectAll<SVGCircleElement, GraphNode>("circle:first-of-type")
+    root
+      .selectAll<SVGCircleElement, GraphNode>("circle:first-of-type")
       .attr("fill", (d) => nodeFill(d, diff));
-    root.selectAll<SVGCircleElement, GraphNode>("circle.ring")
+    root
+      .selectAll<SVGCircleElement, GraphNode>("circle.ring")
       .attr("stroke", (d) => nodeRingStroke(d, selectedNodeId, diff))
       .attr("stroke-dasharray", (d) => ringDashArray(d, diff));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [diff]);
 
   // ── Search highlight + auto-pan ────────────────────────────────────────────
   useEffect(() => {
     if (!initialized.current || svgRef.current === null) return;
 
-    const nodeSel = d3
-      .select(svgRef.current)
-      .selectAll<SVGGElement, GraphNode>("g.node");
+    const nodeSel = d3.select(svgRef.current).selectAll<SVGGElement, GraphNode>("g.node");
 
     applySearchHighlight(nodeSel, nodeSearch);
 
     if (nodeSearch.trim() !== "") {
-      const first = (simRef.current?.nodes() ?? []).find(
-        (n) => n.functionName.toLowerCase().includes(nodeSearch.toLowerCase()),
+      const first = (simRef.current?.nodes() ?? []).find((n) =>
+        n.functionName.toLowerCase().includes(nodeSearch.toLowerCase()),
       );
       if (first?.x !== undefined && first.y !== undefined) {
         panToGraphPoint(first.x, first.y);
@@ -405,7 +438,7 @@ export function useD3Graph({
     }
   }, [nodeSearch, panToGraphPoint]);
 
-  return { svgRef, panToGraphPoint };
+  return { svgRef, panToGraphPoint, fitToScreen };
 }
 
 // ---------------------------------------------------------------------------
@@ -417,10 +450,10 @@ function applySearchHighlight(
   nodeSearch: string,
 ): void {
   nodeSel.attr("opacity", (d) => nodeOpacity(d, nodeSearch));
-  nodeSel.select<SVGCircleElement>("circle:first-of-type")
+  nodeSel
+    .select<SVGCircleElement>("circle:first-of-type")
     .attr("filter", (d) =>
-      nodeSearch.trim() !== "" &&
-      d.functionName.toLowerCase().includes(nodeSearch.toLowerCase())
+      nodeSearch.trim() !== "" && d.functionName.toLowerCase().includes(nodeSearch.toLowerCase())
         ? "url(#search-glow)"
         : null,
     );

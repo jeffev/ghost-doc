@@ -48,6 +48,7 @@ export function buildGraph(spans: SpanInput[]): ExportGraph {
       agentId: string;
       file: string;
       line: number;
+      description?: string;
       durations: number[];
       hasAnomaly: boolean;
       hasError: boolean;
@@ -55,10 +56,7 @@ export function buildGraph(spans: SpanInput[]): ExportGraph {
   >();
 
   // Accumulate per-edge stats
-  const edgeStats = new Map<
-    string,
-    { fromId: string; toId: string; durations: number[] }
-  >();
+  const edgeStats = new Map<string, { fromId: string; toId: string; durations: number[] }>();
 
   for (const span of spans) {
     const nid = nodeId(span.source.agent_id, span.source.function_name);
@@ -71,6 +69,7 @@ export function buildGraph(spans: SpanInput[]): ExportGraph {
         agentId: span.source.agent_id,
         file: span.source.file,
         line: span.source.line,
+        ...(span.source.description !== undefined && { description: span.source.description }),
         durations: [],
         hasAnomaly: false,
         hasError: false,
@@ -107,6 +106,7 @@ export function buildGraph(spans: SpanInput[]): ExportGraph {
       agentId: s.agentId,
       file: s.file,
       line: s.line,
+      ...(s.description !== undefined && { description: s.description }),
       callCount: s.durations.length,
       avgDurationMs: Math.round(avg(s.durations) * 100) / 100,
       p95DurationMs: Math.round(p95(s.durations) * 100) / 100,

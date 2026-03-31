@@ -25,6 +25,8 @@ export interface ExportNode {
   agentId: string;
   file: string;
   line: number;
+  /** Optional human-readable description (from docstring or explicit @trace option) */
+  description?: string;
   callCount: number;
   avgDurationMs: number;
   p95DurationMs: number;

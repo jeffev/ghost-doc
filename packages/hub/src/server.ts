@@ -13,6 +13,7 @@ import { TraceEventSchema } from "@ghost-doc/shared-types";
 import { AnomalyDetector, buildSpanTree } from "./correlator.js";
 import { buildKeySet, sanitizeSpan } from "./sanitize.js";
 import { TraceStore, type StoredSpan } from "./store.js";
+import { buildGraph, buildHtmlDoc, buildMarkdownDoc } from "@ghost-doc/exporter";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -33,6 +34,12 @@ export interface HubConfig {
    * Set to 0 or omit to disable. Default: 0
    */
   flushIntervalMs?: number;
+  /**
+   * Maximum number of spans a single agent connection may send per second.
+   * Excess spans are silently dropped. Default: 500.
+   * Set to 0 to disable rate limiting.
+   */
+  maxSpansPerSecond?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -59,8 +66,9 @@ export async function loadConfigFile(storageDir: string): Promise<HubConfigFile>
     const result: HubConfigFile = {};
     if (typeof cfg["port"] === "number") result.port = cfg["port"];
     if (Array.isArray(cfg["sanitizeKeys"])) {
-      result.sanitizeKeys = (cfg["sanitizeKeys"] as unknown[])
-        .filter((k): k is string => typeof k === "string");
+      result.sanitizeKeys = (cfg["sanitizeKeys"] as unknown[]).filter(
+        (k): k is string => typeof k === "string",
+      );
     }
     if (typeof cfg["flushIntervalMs"] === "number") result.flushIntervalMs = cfg["flushIntervalMs"];
     return result;
@@ -113,6 +121,9 @@ export class GhostDocHub {
   /** True when the dashboard's static files were found and the plugin registered. */
   private hasStaticFiles = false;
 
+  /** Per-connection sliding window: maps ws → array of arrival timestamps (ms). */
+  private readonly agentRateWindows = new WeakMap<WebSocket, number[]>();
+
   constructor(config: HubConfig = {}) {
     this.config = {
       port: config.port ?? 3001,
@@ -120,6 +131,7 @@ export class GhostDocHub {
       sanitizeKeys: config.sanitizeKeys ?? [],
       storageDir: config.storageDir ?? DEFAULT_STORAGE_DIR,
       flushIntervalMs: config.flushIntervalMs ?? 0,
+      maxSpansPerSecond: config.maxSpansPerSecond ?? 500,
     };
 
     this.store = new TraceStore();
@@ -162,10 +174,9 @@ export class GhostDocHub {
 
     // Start periodic disk flush if configured.
     if (this.config.flushIntervalMs > 0) {
-      this.flushTimer = setInterval(
-        () => { void this.flushToDisk(); },
-        this.config.flushIntervalMs,
-      );
+      this.flushTimer = setInterval(() => {
+        void this.flushToDisk();
+      }, this.config.flushIntervalMs);
     }
   }
 
@@ -206,11 +217,43 @@ export class GhostDocHub {
   // ---------------------------------------------------------------------------
 
   private onAgentConnect(ws: WebSocket): void {
-    ws.on("message", (raw) => this.handleAgentMessage(raw.toString()));
+    this.agentRateWindows.set(ws, []);
+    ws.on("message", (raw) => {
+      if (!this.checkRateLimit(ws)) return; // drop span silently
+      this.handleAgentMessage(raw.toString());
+    });
     ws.on("error", (err) => {
       // Errors are logged at warn level; they don't crash the Hub.
       console.warn(`[hub] agent ws error: ${err.message}`);
     });
+    ws.on("close", () => {
+      // WeakMap cleans up automatically, but be explicit for GC friendliness.
+      this.agentRateWindows.delete(ws);
+    });
+  }
+
+  /**
+   * Sliding-window rate limiter. Returns true if the span should be processed,
+   * false if it exceeds the per-connection rate limit.
+   */
+  private checkRateLimit(ws: WebSocket): boolean {
+    const limit = this.config.maxSpansPerSecond;
+    if (limit <= 0) return true; // rate limiting disabled
+
+    const now = Date.now();
+    const window = this.agentRateWindows.get(ws);
+    if (window === undefined) return true;
+
+    // Evict timestamps older than 1 second.
+    const cutoff = now - 1_000;
+    let i = 0;
+    while (i < window.length && (window[i] ?? 0) < cutoff) i++;
+    if (i > 0) window.splice(0, i);
+
+    if (window.length >= limit) return false; // rate exceeded — drop
+
+    window.push(now);
+    return true;
   }
 
   private handleAgentMessage(raw: string): void {
@@ -318,26 +361,20 @@ export class GhostDocHub {
     }));
 
     // GET /traces?limit=100&agent_id=frontend
-    app.get<{ Querystring: { limit?: string; agent_id?: string } }>(
-      "/traces",
-      async (req) => {
-        const limit = Math.min(parseInt(req.query.limit ?? "100", 10), 1_000);
-        const agentId = req.query.agent_id;
-        return this.store.getRecent(limit, agentId);
-      },
-    );
+    app.get<{ Querystring: { limit?: string; agent_id?: string } }>("/traces", async (req) => {
+      const limit = Math.min(parseInt(req.query.limit ?? "100", 10), 1_000);
+      const agentId = req.query.agent_id;
+      return this.store.getRecent(limit, agentId);
+    });
 
     // GET /traces/:traceId
-    app.get<{ Params: { traceId: string } }>(
-      "/traces/:traceId",
-      async (req, reply) => {
-        const spans = this.store.getByTraceId(req.params.traceId);
-        if (spans.length === 0) {
-          return reply.status(404).send({ error: "trace not found" });
-        }
-        return buildSpanTree(spans);
-      },
-    );
+    app.get<{ Params: { traceId: string } }>("/traces/:traceId", async (req, reply) => {
+      const spans = this.store.getByTraceId(req.params.traceId);
+      if (spans.length === 0) {
+        return reply.status(404).send({ error: "trace not found" });
+      }
+      return buildSpanTree(spans);
+    });
 
     // POST /snapshot
     app.post("/snapshot", async () => {
@@ -405,20 +442,39 @@ export class GhostDocHub {
     });
 
     // GET /snapshots/:id
-    app.get<{ Params: { id: string } }>(
-      "/snapshots/:id",
+    app.get<{ Params: { id: string } }>("/snapshots/:id", async (req, reply) => {
+      const filePath = path.join(this.config.storageDir, "snapshots", `${req.params.id}.json`);
+      try {
+        const content = await fs.readFile(filePath, "utf-8");
+        return JSON.parse(content) as unknown;
+      } catch {
+        return reply.status(404).send({ error: "snapshot not found" });
+      }
+    });
+
+    // GET /export?format=html|markdown&project=MyApp
+    // Returns a rendered document from the current span buffer.
+    app.get<{ Querystring: { format?: string; project?: string } }>(
+      "/export",
       async (req, reply) => {
-        const filePath = path.join(
-          this.config.storageDir,
-          "snapshots",
-          `${req.params.id}.json`,
-        );
-        try {
-          const content = await fs.readFile(filePath, "utf-8");
-          return JSON.parse(content) as unknown;
-        } catch {
-          return reply.status(404).send({ error: "snapshot not found" });
+        const format = req.query.format ?? "html";
+        const project = req.query.project ?? "Project";
+        const spans = this.store.getRecent(10_000);
+
+        if (format === "markdown") {
+          const graph = buildGraph(spans as Parameters<typeof buildGraph>[0]);
+          const md = buildMarkdownDoc(graph, project, {});
+          void reply.header("Content-Type", "text/markdown; charset=utf-8");
+          void reply.header("Content-Disposition", `attachment; filename="${project}.md"`);
+          return reply.send(md);
         }
+
+        // Default: html
+        const graph = buildGraph(spans as Parameters<typeof buildGraph>[0]);
+        const html = buildHtmlDoc(graph, { projectName: project });
+        void reply.header("Content-Type", "text/html; charset=utf-8");
+        void reply.header("Content-Disposition", `attachment; filename="${project}.html"`);
+        return reply.send(html);
       },
     );
 

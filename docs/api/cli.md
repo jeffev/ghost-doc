@@ -10,11 +10,11 @@ Starts the Hub server and opens the Dashboard in the default browser.
 ghost-doc start [options]
 ```
 
-| Option | Default | Description |
-| :--- | :--- | :--- |
-| `--port <n>` | `3001` | Port for Hub server and Dashboard |
-| `--no-open` | — | Do not open the browser automatically |
-| `--config <path>` | `~/.ghost-doc/config.json` | Path to config file |
+| Option            | Default                    | Description                           |
+| :---------------- | :------------------------- | :------------------------------------ |
+| `--port <n>`      | `3001`                     | Port for Hub server and Dashboard     |
+| `--no-open`       | —                          | Do not open the browser automatically |
+| `--config <path>` | `~/.ghost-doc/config.json` | Path to config file                   |
 
 ## `ghost-doc stop`
 
@@ -33,6 +33,7 @@ ghost-doc status
 ```
 
 **Output example:**
+
 ```
 Ghost Doc Hub — running on port 3001
   Agents:       2 connected (backend-api, python-service)
@@ -48,24 +49,27 @@ Exports the current call graph to a documentation format.
 ghost-doc export [options]
 ```
 
-| Option | Description |
-| :--- | :--- |
-| `--format <fmt>` | `markdown` \| `notion` \| `obsidian` \| `confluence` |
-| `--output <path>` | Output file path (for markdown / obsidian) |
-| `--project <name>` | Project name used in the export header |
-| `--agent <id>` | Export only traces from this agent |
-| `--since <iso>` | Export only traces after this timestamp |
-| `--token <t>` | API token (Notion / Confluence) |
-| `--page-id <id>` | Target page ID (Notion) |
-| `--url <base>` | Base URL (Confluence) |
-| `--space <key>` | Space key (Confluence) |
-| `--vault-path <p>` | Obsidian vault path |
+| Option             | Description                                                    |
+| :----------------- | :------------------------------------------------------------- |
+| `--format <fmt>`   | `markdown` \| `html` \| `notion` \| `obsidian` \| `confluence` |
+| `--output <path>`  | Output file path (for markdown / obsidian)                     |
+| `--project <name>` | Project name used in the export header                         |
+| `--agent <id>`     | Export only traces from this agent                             |
+| `--since <iso>`    | Export only traces after this timestamp                        |
+| `--token <t>`      | API token (Notion / Confluence)                                |
+| `--page-id <id>`   | Target page ID (Notion)                                        |
+| `--url <base>`     | Base URL (Confluence)                                          |
+| `--space <key>`    | Space key (Confluence)                                         |
+| `--vault-path <p>` | Obsidian vault path                                            |
 
 **Examples:**
 
 ```bash
 # Markdown + Mermaid
 ghost-doc export --format markdown --output FLOW.md --project MyApp
+
+# Self-contained HTML (opens in any browser)
+ghost-doc export --format html --output FLOW.html --project MyApp
 
 # Notion
 ghost-doc export --format notion --token secret_xxx --page-id abc123

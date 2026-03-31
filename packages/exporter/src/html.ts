@@ -1,21 +1,21 @@
-import type { ExportGraph, ExportNode, SpanInput } from "./types.js";
+import type { ExportGraph, SpanInput } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Service color palette
 // ---------------------------------------------------------------------------
 
 const PALETTE: Record<string, string> = {
-  Handlers:            "#3182ce",
-  UserService:         "#805ad5",
-  OrderService:        "#d69e2e",
-  InventoryService:    "#38a169",
-  PaymentService:      "#e53e3e",
+  Handlers: "#3182ce",
+  UserService: "#805ad5",
+  OrderService: "#d69e2e",
+  InventoryService: "#38a169",
+  PaymentService: "#e53e3e",
   NotificationService: "#ed8936",
-  DatabaseService:     "#4a5568",
-  CacheService:        "#319795",
-  AuditService:        "#667eea",
-  SearchService:       "#48bb78",
-  Other:               "#718096",
+  DatabaseService: "#4a5568",
+  CacheService: "#319795",
+  AuditService: "#667eea",
+  SearchService: "#48bb78",
+  Other: "#718096",
 };
 
 const DEFAULT_COLOR = "#718096";
@@ -54,6 +54,7 @@ interface CyNode {
     agentId: string;
     file: string;
     line: number;
+    description: string;
     avgDuration: number;
     p95Duration: number;
     callCount: number;
@@ -86,6 +87,7 @@ function buildCyElements(graph: ExportGraph): { nodes: CyNode[]; edges: CyEdge[]
       agentId: n.agentId,
       file: n.file,
       line: n.line,
+      description: n.description ?? "",
       avgDuration: n.avgDurationMs,
       p95Duration: n.p95DurationMs,
       callCount: n.callCount,
@@ -753,6 +755,7 @@ function renderDetailPanel(d) {
 
   body.innerHTML = \`
     <div>
+      \${d.description ? \`<p style="font-size:12px;color:#cbd5e0;line-height:1.5;margin-bottom:8px;">\${d.description}</p>\` : ""}
       <div class="kv-grid">
         <span class="kv-key">Function</span>
         <span class="kv-val">\${d.fullName} \${badges}</span>
