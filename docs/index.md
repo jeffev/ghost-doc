@@ -2,11 +2,11 @@
 layout: home
 
 hero:
-  name: "👻 Ghost Doc"
+  name: "Ghost Doc"
   text: "Your code's black box."
   tagline: Observe how your functions actually behave at runtime and turn that into visual documentation — automatically, without a single written comment.
   image:
-    src: /favicon.svg
+    src: /logo.png
     alt: Ghost Doc
   actions:
     - theme: brand
@@ -36,9 +36,9 @@ features:
     title: Time-travel debugger
     details: Scrub back in time to see exactly what your system looked like at any moment. Replay at 0.5x, 1x, 2x, or 10x speed.
 
-  - icon: 🐍
-    title: Python & TypeScript
-    details: Identical decorator API for both languages. The Python agent auto-extracts your docstring as the node description — no extra configuration.
+  - icon: ☕
+    title: Python, TypeScript & Java
+    details: Identical decorator API across all three languages. The Python agent auto-extracts docstrings; the Java agent integrates with Spring Boot via @Trace and Spring AOP.
 
   - icon: 🔒
     title: Privacy-first sanitization
@@ -95,6 +95,20 @@ pnpm add @ghost-doc/agent-js
 
 ```bash [pip]
 pip install ghost-doc-agent    # Python agent
+```
+
+```groovy [Gradle]
+// Java / Spring Boot agent
+implementation 'io.github.jeffev:agent-java:0.1.0'
+```
+
+```xml [Maven]
+<!-- Java / Spring Boot agent -->
+<dependency>
+  <groupId>io.github.jeffev</groupId>
+  <artifactId>agent-java</artifactId>
+  <version>0.1.0</version>
+</dependency>
 ```
 
 :::

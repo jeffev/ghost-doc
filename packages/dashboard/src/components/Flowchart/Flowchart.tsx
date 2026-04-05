@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDashboardStore } from "../../store/index.js";
-import type { GraphNode } from "../../store/types.js";
+import type { GraphData, GraphNode } from "../../store/types.js";
 import { useD3Graph, type MinimapUpdate } from "./useD3Graph.js";
 import { Minimap } from "./Minimap.js";
 import { useKeyboardShortcuts } from "../../hooks/useKeyboardShortcuts.js";
@@ -10,11 +10,28 @@ import { useKeyboardShortcuts } from "../../hooks/useKeyboardShortcuts.js";
  * Fills its container and responds to container resize via ResizeObserver.
  */
 export function Flowchart(): JSX.Element {
-  const graph = useDashboardStore((s) => s.graph);
+  const rawGraph = useDashboardStore((s) => s.graph);
   const selectedNodeId = useDashboardStore((s) => s.selectedNodeId);
   const selectNode = useDashboardStore((s) => s.selectNode);
   const nodeSearch = useDashboardStore((s) => s.nodeSearch);
+  const store = useDashboardStore();
   const graphDiff = useDashboardStore((s) => s.graphDiff);
+  const criticalPath = useDashboardStore((s) => s.criticalPath);
+
+  // Local hidden-node set (persists until clear or un-hide via menu).
+  const [hiddenNodeIds, setHiddenNodeIds] = useState<Set<string>>(new Set());
+
+  // Filter hidden nodes out of the graph locally (no store rebuild needed).
+  const graph = useMemo<GraphData>(() => {
+    if (hiddenNodeIds.size === 0) return rawGraph;
+    const kept = new Set(rawGraph.nodes.filter((n) => !hiddenNodeIds.has(n.id)).map((n) => n.id));
+    return {
+      nodes: rawGraph.nodes.filter((n) => kept.has(n.id)),
+      edges: rawGraph.edges.filter(
+        (e) => kept.has(e.source as string) && kept.has(e.target as string),
+      ),
+    };
+  }, [rawGraph, hiddenNodeIds]);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [dims, setDims] = useState({ width: 800, height: 600 });
@@ -22,6 +39,13 @@ export function Flowchart(): JSX.Element {
   // Tooltip state.
   const [hoveredNode, setHoveredNode] = useState<GraphNode | null>(null);
   const [cursorPos, setCursorPos] = useState({ x: 0, y: 0 });
+
+  // Context menu state (right-click on node).
+  const [contextMenu, setContextMenu] = useState<{
+    node: GraphNode;
+    x: number;
+    y: number;
+  } | null>(null);
 
   // Minimap update state (throttled by useD3Graph at ~10 fps).
   const [minimapUpdate, setMinimapUpdate] = useState<MinimapUpdate>({
@@ -47,10 +71,16 @@ export function Flowchart(): JSX.Element {
 
   const handleNodeClick = useCallback(
     (nodeId: string) => {
+      setContextMenu(null);
       selectNode(nodeId === selectedNodeId ? null : nodeId);
     },
     [selectedNodeId, selectNode],
   );
+
+  const handleNodeContextMenu = useCallback((node: GraphNode, x: number, y: number) => {
+    setHoveredNode(null);
+    setContextMenu({ node, x, y });
+  }, []);
 
   const handleMinimapUpdate = useCallback((update: MinimapUpdate) => {
     setMinimapUpdate(update);
@@ -66,6 +96,8 @@ export function Flowchart(): JSX.Element {
     diff: graphDiff,
     onNodeHover: setHoveredNode,
     onMinimapUpdate: handleMinimapUpdate,
+    onNodeContextMenu: handleNodeContextMenu,
+    criticalPath,
   });
 
   useKeyboardShortcuts(fitToScreen);
@@ -99,6 +131,17 @@ export function Flowchart(): JSX.Element {
         </div>
       )}
 
+      {/* Critical path legend */}
+      {criticalPath !== null && (
+        <div className="absolute top-3 left-3 bg-panel/90 backdrop-blur-sm border border-purple-700 rounded-lg px-3 py-2 text-xs flex items-center gap-2 pointer-events-none">
+          <span className="inline-block w-2.5 h-2.5 rounded-full bg-purple-500 flex-shrink-0" />
+          <span className="text-purple-300 font-semibold">Critical path</span>
+          <span className="text-gray-400">{Math.round(criticalPath.totalMs)}ms total</span>
+          <span className="text-gray-600">·</span>
+          <span className="text-gray-400">{criticalPath.nodeIds.size} nodes</span>
+        </div>
+      )}
+
       {/* Diff legend */}
       {graphDiff !== null && <DiffLegend removedCount={graphDiff.removedCount} />}
 
@@ -114,8 +157,128 @@ export function Flowchart(): JSX.Element {
         />
       )}
 
-      {/* Node tooltip */}
-      {hoveredNode !== null && <NodeTooltip node={hoveredNode} x={cursorPos.x} y={cursorPos.y} />}
+      {/* Node tooltip (hidden while context menu is open) */}
+      {hoveredNode !== null && contextMenu === null && (
+        <NodeTooltip node={hoveredNode} x={cursorPos.x} y={cursorPos.y} />
+      )}
+
+      {/* Right-click context menu */}
+      {contextMenu !== null && (
+        <NodeContextMenu
+          node={contextMenu.node}
+          screenX={contextMenu.x}
+          screenY={contextMenu.y}
+          onClose={() => setContextMenu(null)}
+          onFocusSubtree={() => {
+            store.setNodeSearch(contextMenu.node.functionName);
+            setContextMenu(null);
+          }}
+          onHideNode={() => {
+            setHiddenNodeIds((prev) => new Set([...prev, contextMenu.node.id]));
+            if (selectedNodeId === contextMenu.node.id) selectNode(null);
+            setContextMenu(null);
+          }}
+          onCopyName={() => {
+            void navigator.clipboard.writeText(contextMenu.node.functionName);
+            setContextMenu(null);
+          }}
+          onCopyJson={() => {
+            void navigator.clipboard.writeText(
+              JSON.stringify(contextMenu.node.latestSpan, null, 2),
+            );
+            setContextMenu(null);
+          }}
+        />
+      )}
+
+      {/* Hidden-nodes reset banner */}
+      {hiddenNodeIds.size > 0 && (
+        <button
+          onClick={() => setHiddenNodeIds(new Set())}
+          className="absolute bottom-14 left-1/2 -translate-x-1/2 text-xs bg-panel border border-border rounded-full px-3 py-1 text-gray-400 hover:text-white hover:border-accent transition-colors"
+        >
+          {hiddenNodeIds.size} hidden node{hiddenNodeIds.size !== 1 ? "s" : ""} — click to restore
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// NodeContextMenu
+// ---------------------------------------------------------------------------
+
+interface NodeContextMenuProps {
+  node: GraphNode;
+  screenX: number;
+  screenY: number;
+  onClose: () => void;
+  onFocusSubtree: () => void;
+  onHideNode: () => void;
+  onCopyName: () => void;
+  onCopyJson: () => void;
+}
+
+function NodeContextMenu({
+  node,
+  screenX,
+  screenY,
+  onClose,
+  onFocusSubtree,
+  onHideNode,
+  onCopyName,
+  onCopyJson,
+}: NodeContextMenuProps): JSX.Element {
+  // Convert screen coords to container-relative coords.
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  // Close on outside click or Escape.
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    function handleClick() {
+      onClose();
+    }
+    window.addEventListener("keydown", handleKey);
+    window.addEventListener("mousedown", handleClick);
+    return () => {
+      window.removeEventListener("keydown", handleKey);
+      window.removeEventListener("mousedown", handleClick);
+    };
+  }, [onClose]);
+
+  const items: { label: string; icon: string; action: () => void; danger?: boolean }[] = [
+    { label: "Focus subtree", icon: "🔍", action: onFocusSubtree },
+    { label: "Hide node", icon: "🙈", action: onHideNode, danger: true },
+    { label: "Copy name", icon: "📋", action: onCopyName },
+    { label: "Copy JSON", icon: "{ }", action: onCopyJson },
+  ];
+
+  return (
+    <div
+      ref={containerRef}
+      className="fixed z-[100] bg-panel border border-border rounded-lg shadow-xl overflow-hidden text-xs min-w-[160px]"
+      style={{ left: screenX, top: screenY }}
+      onMouseDown={(e) => e.stopPropagation()}
+    >
+      <div className="px-3 py-1.5 border-b border-border text-gray-500 font-mono truncate">
+        {node.functionName}
+      </div>
+      {items.map(({ label, icon, action, danger }) => (
+        <button
+          key={label}
+          onClick={action}
+          className={`w-full text-left px-3 py-1.5 flex items-center gap-2 transition-colors ${
+            danger
+              ? "text-gray-400 hover:bg-anomaly/20 hover:text-anomaly"
+              : "text-gray-300 hover:bg-accent/20 hover:text-white"
+          }`}
+        >
+          <span className="text-[11px]">{icon}</span>
+          {label}
+        </button>
+      ))}
     </div>
   );
 }

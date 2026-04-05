@@ -5,6 +5,7 @@ import type { TraceEvent } from "@ghost-doc/shared-types";
 const BASE_RETRY_DELAY_MS = 1_000;
 const MAX_RETRY_DELAY_MS = 30_000;
 const WARN_AFTER_ATTEMPTS = 10;
+const BATCH_DELAY_MS = 50;
 
 /**
  * Fire-and-forget WebSocket transport.
@@ -13,6 +14,7 @@ const WARN_AFTER_ATTEMPTS = 10;
  * - Buffers events in a RingBuffer when the connection is unavailable.
  * - Flushes the buffer automatically when the connection is restored.
  * - Reconnects with exponential backoff (1s → 30s cap).
+ * - Batches outgoing events: waits up to 50ms before sending, reducing WS frames.
  * - Never throws; errors are logged with a [ghost-doc] prefix.
  */
 export class WsTransport {
@@ -21,6 +23,10 @@ export class WsTransport {
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
   private _connected = false;
   private _destroyed = false;
+
+  /** Pending events waiting to be sent as a batch. */
+  private batchBuffer: TraceEvent[] = [];
+  private batchTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private readonly hubUrl: string,
@@ -86,34 +92,55 @@ export class WsTransport {
 
   private _flushBuffer(): void {
     const events = this.buffer.drain();
-    for (const event of events) {
-      this._sendRaw(event);
+    if (events.length > 0) {
+      this._sendBatchRaw(events);
     }
   }
 
-  private _sendRaw(event: TraceEvent): void {
-    if (this.ws?.readyState !== WebSocket.OPEN) return;
-
+  private _sendBatchRaw(events: TraceEvent[]): void {
+    if (this.ws?.readyState !== WebSocket.OPEN) {
+      // Connection lost between scheduling and firing — re-buffer all.
+      for (const e of events) this.buffer.push(e);
+      return;
+    }
     try {
-      this.ws.send(JSON.stringify(event));
+      this.ws.send(JSON.stringify(events));
     } catch (err) {
-      console.error("[ghost-doc] Failed to send trace event, re-buffering:", err);
-      this.buffer.push(event);
+      console.error("[ghost-doc] Failed to send trace batch, re-buffering:", err);
+      for (const e of events) this.buffer.push(e);
     }
   }
 
-  /** Send a trace event. Buffers the event if not currently connected. */
+  private _scheduleBatch(): void {
+    if (this.batchTimer !== null) return;
+    this.batchTimer = setTimeout(() => {
+      this.batchTimer = null;
+      const batch = this.batchBuffer;
+      this.batchBuffer = [];
+      this._sendBatchRaw(batch);
+    }, BATCH_DELAY_MS);
+  }
+
+  /** Send a trace event. Batches up to 50ms before transmitting. */
   send(event: TraceEvent): void {
     if (this._connected && this.ws?.readyState === WebSocket.OPEN) {
-      this._sendRaw(event);
+      this.batchBuffer.push(event);
+      this._scheduleBatch();
     } else {
       this.buffer.push(event);
     }
   }
 
-  /** Gracefully close the connection and cancel any pending reconnect timer. */
+  /** Gracefully close the connection and cancel any pending timers. */
   disconnect(): void {
     this._destroyed = true;
+
+    if (this.batchTimer !== null) {
+      clearTimeout(this.batchTimer);
+      this.batchTimer = null;
+      // Discard any unsent buffered events on explicit disconnect.
+      this.batchBuffer = [];
+    }
 
     if (this.retryTimer !== null) {
       clearTimeout(this.retryTimer);

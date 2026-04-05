@@ -29,7 +29,11 @@
       "Bash(npx tsc:*)",
       "Bash(find d:/Ghost_Doc/packages/dashboard/src -name *.ts -o -name *.tsx)",
       "Bash(grep -n \"description\\\\|docstring\\\\|__doc__\" d:/Ghost_Doc/packages/agent-python/ghost_doc_agent/*.py)",
-      "Bash(grep -r \"\"version\"\" d:/Ghost_Doc/packages/*/package.json d:/Ghost_Doc/package.json)"
+      "Bash(grep -r \"\"version\"\" d:/Ghost_Doc/packages/*/package.json d:/Ghost_Doc/package.json)",
+      "Bash(grep -rn \"your-org\" d:/Ghost_Doc/packages/*/package.json)",
+      "Bash(pnpm --filter @ghost-doc/dashboard typecheck)",
+      "Bash(pnpm --filter @ghost-doc/dashboard test)",
+      "Bash(pnpm --filter @ghost-doc/dashboard test --reporter=verbose)"
     ]
   }
 }

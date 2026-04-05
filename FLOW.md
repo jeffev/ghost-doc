@@ -1,11 +1,11 @@
 # Ghost Doc — SampleApp Flow Documentation
 
-> **Generated:** 2026-03-30T14:08:31.246Z  
+> **Generated:** 2026-03-31T00:36:52.641Z  
 > **Agents:** sample-ecommerce  
-> **Total spans:** 576  
+> **Total spans:** 516  
 > **Functions:** 28  
 > **Anomalies detected:** 4  
-> **Functions with errors:** 2  
+> **Functions with errors:** 2
 
 ## Flow Diagram
 
@@ -16,539 +16,515 @@ flowchart LR
   classDef handlerNode fill:#2b6cb0,color:#fff,stroke:#2c5282
 
   subgraph Handlers["Handlers"]
-    sample_ecommerce__handleRefund["handleRefund\n200.71ms avg"]:::handlerNode
-    sample_ecommerce__handleLogin["handleLogin\n112.23ms avg"]:::handlerNode
-    sample_ecommerce__handleProfileLoad["handleProfileLoad\n79.77ms avg"]:::handlerNode
-    sample_ecommerce__handleCheckout["handleCheckout\n447.27ms avg\n[ERR,ANOMALY]"]:::errorNode
-    sample_ecommerce__handleProductSearch["handleProductSearch\n57.27ms avg"]:::handlerNode
+    sample_ecommerce__handleLogin["handleLogin\n123.82ms avg"]:::handlerNode
+    sample_ecommerce__handleCheckout["handleCheckout\n439.16ms avg\n[ERR,ANOMALY]"]:::errorNode
+    sample_ecommerce__handleProfileLoad["handleProfileLoad\n82.58ms avg"]:::handlerNode
+    sample_ecommerce__handleRefund["handleRefund\n192.93ms avg"]:::handlerNode
+    sample_ecommerce__handleProductSearch["handleProductSearch\n54.01ms avg"]:::handlerNode
   end
 
   subgraph AuditService["AuditService"]
-    sample_ecommerce__AuditService_log["log\n54.34ms avg"]
-    sample_ecommerce__AuditService_getRecentActivity["getRecentActivity\n36.75ms avg"]
+    sample_ecommerce__AuditService_log["log\n56.23ms avg"]
+    sample_ecommerce__AuditService_getRecentActivity["getRecentActivity\n35.92ms avg"]
   end
 
   subgraph CacheService["CacheService"]
-    sample_ecommerce__CacheService_get["get\n11.72ms avg\n[ANOMALY]"]:::anomalyNode
-    sample_ecommerce__CacheService_set["set\n12.46ms avg"]
-    sample_ecommerce__CacheService_invalidate["invalidate\n11.95ms avg"]
+    sample_ecommerce__CacheService_get["get\n13.52ms avg\n[ANOMALY]"]:::anomalyNode
+    sample_ecommerce__CacheService_set["set\n11.51ms avg"]
+    sample_ecommerce__CacheService_invalidate["invalidate\n12.05ms avg"]
   end
 
   subgraph DatabaseService["DatabaseService"]
-    sample_ecommerce__DatabaseService_execute["execute\n41.55ms avg"]
-    sample_ecommerce__DatabaseService_query["query\n36.37ms avg"]
-    sample_ecommerce__DatabaseService_findById["findById\n26.87ms avg"]
+    sample_ecommerce__DatabaseService_execute["execute\n41.7ms avg"]
+    sample_ecommerce__DatabaseService_query["query\n35.81ms avg"]
+    sample_ecommerce__DatabaseService_findById["findById\n26.81ms avg"]
   end
 
   subgraph InventoryService["InventoryService"]
-    sample_ecommerce__InventoryService_reserveStock["reserveStock\n85.07ms avg"]
-    sample_ecommerce__InventoryService_checkStock["checkStock\n20.2ms avg"]
-    sample_ecommerce__InventoryService_getProduct["getProduct\n21.38ms avg"]
+    sample_ecommerce__InventoryService_checkStock["checkStock\n17.83ms avg"]
+    sample_ecommerce__InventoryService_getProduct["getProduct\n33.42ms avg"]
+    sample_ecommerce__InventoryService_reserveStock["reserveStock\n83.02ms avg"]
   end
 
   subgraph NotificationService["NotificationService"]
-    sample_ecommerce__NotificationService_sendSms["sendSms\n100.2ms avg"]
-    sample_ecommerce__NotificationService_sendEmail["sendEmail\n77.47ms avg"]
-    sample_ecommerce__NotificationService_sendPush["sendPush\n70.57ms avg"]
+    sample_ecommerce__NotificationService_sendEmail["sendEmail\n77.09ms avg"]
+    sample_ecommerce__NotificationService_sendPush["sendPush\n68.74ms avg"]
+    sample_ecommerce__NotificationService_sendSms["sendSms\n85.11ms avg"]
   end
 
   subgraph OrderService["OrderService"]
-    sample_ecommerce__OrderService_getOrderSummary["getOrderSummary\n57.75ms avg"]
-    sample_ecommerce__OrderService_processOrder["processOrder\n255.13ms avg"]
-    sample_ecommerce__OrderService_buildOrder["buildOrder\n109.7ms avg\n[ERR,ANOMALY]"]:::errorNode
+    sample_ecommerce__OrderService_buildOrder["buildOrder\n112.6ms avg\n[ERR,ANOMALY]"]:::errorNode
+    sample_ecommerce__OrderService_getOrderSummary["getOrderSummary\n56.58ms avg"]
+    sample_ecommerce__OrderService_processOrder["processOrder\n218.89ms avg"]
   end
 
   subgraph PaymentService["PaymentService"]
-    sample_ecommerce__PaymentService_refund["refund\n48.92ms avg"]
-    sample_ecommerce__PaymentService_charge["charge\n34.31ms avg"]
-    sample_ecommerce__PaymentService_validateCard["validateCard\n37.46ms avg"]
+    sample_ecommerce__PaymentService_charge["charge\n39.38ms avg"]
+    sample_ecommerce__PaymentService_validateCard["validateCard\n35.3ms avg"]
+    sample_ecommerce__PaymentService_refund["refund\n44.92ms avg"]
   end
 
   subgraph UserService["UserService"]
-    sample_ecommerce__UserService_authenticate["authenticate\n94.72ms avg\n[ANOMALY]"]:::anomalyNode
-    sample_ecommerce__UserService_getUserPreferences["getUserPreferences\n33.99ms avg"]
-    sample_ecommerce__UserService_getUser["getUser\n17.41ms avg"]
+    sample_ecommerce__UserService_authenticate["authenticate\n105.12ms avg\n[ANOMALY]"]:::anomalyNode
+    sample_ecommerce__UserService_getUserPreferences["getUserPreferences\n27.85ms avg"]
+    sample_ecommerce__UserService_getUser["getUser\n17.99ms avg"]
   end
 
-  sample_ecommerce__handleRefund -->|"50.69ms"| sample_ecommerce__AuditService_log
-  sample_ecommerce__AuditService_log -->|"39.73ms"| sample_ecommerce__DatabaseService_execute
-  sample_ecommerce__handleRefund -->|"100.2ms"| sample_ecommerce__NotificationService_sendSms
-  sample_ecommerce__NotificationService_sendSms -->|"67.13ms"| sample_ecommerce__AuditService_log
-  sample_ecommerce__handleRefund -->|"83.36ms"| sample_ecommerce__NotificationService_sendEmail
-  sample_ecommerce__NotificationService_sendEmail -->|"54.71ms"| sample_ecommerce__AuditService_log
-  sample_ecommerce__handleLogin -->|"94.72ms"| sample_ecommerce__UserService_authenticate
-  sample_ecommerce__UserService_authenticate -->|"56.74ms"| sample_ecommerce__AuditService_log
-  sample_ecommerce__handleProfileLoad -->|"36.75ms"| sample_ecommerce__AuditService_getRecentActivity
-  sample_ecommerce__AuditService_getRecentActivity -->|"36.43ms"| sample_ecommerce__DatabaseService_query
-  sample_ecommerce__handleRefund -->|"48.92ms"| sample_ecommerce__PaymentService_refund
-  sample_ecommerce__PaymentService_refund -->|"48.72ms"| sample_ecommerce__DatabaseService_execute
-  sample_ecommerce__UserService_authenticate -->|"34.37ms"| sample_ecommerce__DatabaseService_query
-  sample_ecommerce__handleProfileLoad -->|"30.73ms"| sample_ecommerce__UserService_getUserPreferences
-  sample_ecommerce__UserService_getUserPreferences -->|"14.35ms"| sample_ecommerce__CacheService_get
-  sample_ecommerce__handleProfileLoad -->|"11.59ms"| sample_ecommerce__UserService_getUser
-  sample_ecommerce__UserService_getUser -->|"10.8ms"| sample_ecommerce__CacheService_get
-  sample_ecommerce__handleCheckout -->|"78.73ms"| sample_ecommerce__NotificationService_sendEmail
-  sample_ecommerce__handleCheckout -->|"70.57ms"| sample_ecommerce__NotificationService_sendPush
-  sample_ecommerce__NotificationService_sendPush -->|"53.12ms"| sample_ecommerce__AuditService_log
-  sample_ecommerce__handleCheckout -->|"57.75ms"| sample_ecommerce__OrderService_getOrderSummary
-  sample_ecommerce__OrderService_getOrderSummary -->|"15.87ms"| sample_ecommerce__CacheService_set
-  sample_ecommerce__OrderService_getOrderSummary -->|"25.57ms"| sample_ecommerce__DatabaseService_findById
-  sample_ecommerce__OrderService_getOrderSummary -->|"15.34ms"| sample_ecommerce__CacheService_get
-  sample_ecommerce__handleCheckout -->|"255.13ms"| sample_ecommerce__OrderService_processOrder
-  sample_ecommerce__OrderService_processOrder -->|"53.02ms"| sample_ecommerce__AuditService_log
-  sample_ecommerce__OrderService_processOrder -->|"43.37ms"| sample_ecommerce__DatabaseService_execute
-  sample_ecommerce__OrderService_processOrder -->|"34.31ms"| sample_ecommerce__PaymentService_charge
-  sample_ecommerce__PaymentService_charge -->|"37.73ms"| sample_ecommerce__DatabaseService_execute
-  sample_ecommerce__OrderService_processOrder -->|"85.07ms"| sample_ecommerce__InventoryService_reserveStock
-  sample_ecommerce__InventoryService_reserveStock -->|"11.95ms"| sample_ecommerce__CacheService_invalidate
-  sample_ecommerce__InventoryService_reserveStock -->|"43.88ms"| sample_ecommerce__DatabaseService_execute
-  sample_ecommerce__InventoryService_reserveStock -->|"28.33ms"| sample_ecommerce__DatabaseService_findById
-  sample_ecommerce__OrderService_processOrder -->|"37.46ms"| sample_ecommerce__PaymentService_validateCard
-  sample_ecommerce__PaymentService_validateCard -->|"37.18ms"| sample_ecommerce__DatabaseService_query
-  sample_ecommerce__handleCheckout -->|"109.7ms"| sample_ecommerce__OrderService_buildOrder
-  sample_ecommerce__OrderService_buildOrder -->|"46.1ms"| sample_ecommerce__DatabaseService_execute
-  sample_ecommerce__OrderService_buildOrder -->|"12.79ms"| sample_ecommerce__InventoryService_checkStock
-  sample_ecommerce__InventoryService_checkStock -->|"13.48ms"| sample_ecommerce__CacheService_get
-  sample_ecommerce__OrderService_buildOrder -->|"31.26ms"| sample_ecommerce__InventoryService_getProduct
-  sample_ecommerce__InventoryService_getProduct -->|"9.55ms"| sample_ecommerce__CacheService_set
-  sample_ecommerce__InventoryService_getProduct -->|"24.91ms"| sample_ecommerce__DatabaseService_findById
-  sample_ecommerce__InventoryService_getProduct -->|"8.49ms"| sample_ecommerce__CacheService_get
-  sample_ecommerce__OrderService_buildOrder -->|"19.49ms"| sample_ecommerce__UserService_getUser
-  sample_ecommerce__handleProductSearch -->|"6.56ms"| sample_ecommerce__InventoryService_getProduct
-  sample_ecommerce__handleProductSearch -->|"31.3ms"| sample_ecommerce__InventoryService_checkStock
-  sample_ecommerce__InventoryService_checkStock -->|"8.05ms"| sample_ecommerce__CacheService_set
-  sample_ecommerce__InventoryService_checkStock -->|"30.89ms"| sample_ecommerce__DatabaseService_findById
-  sample_ecommerce__handleLogin -->|"42.14ms"| sample_ecommerce__UserService_getUserPreferences
-  sample_ecommerce__UserService_authenticate -->|"8.2ms"| sample_ecommerce__CacheService_set
-  sample_ecommerce__UserService_getUserPreferences -->|"15.96ms"| sample_ecommerce__CacheService_set
-  sample_ecommerce__UserService_getUserPreferences -->|"28.74ms"| sample_ecommerce__DatabaseService_findById
-  sample_ecommerce__UserService_getUser -->|"16.13ms"| sample_ecommerce__CacheService_set
-  sample_ecommerce__UserService_getUser -->|"23.89ms"| sample_ecommerce__DatabaseService_findById
+  sample_ecommerce__NotificationService_sendEmail -->|"56.85ms"| sample_ecommerce__AuditService_log
+  sample_ecommerce__AuditService_log -->|"40.8ms"| sample_ecommerce__DatabaseService_execute
+  sample_ecommerce__handleLogin -->|"105.12ms"| sample_ecommerce__UserService_authenticate
+  sample_ecommerce__UserService_authenticate -->|"59.76ms"| sample_ecommerce__AuditService_log
+  sample_ecommerce__handleCheckout -->|"112.6ms"| sample_ecommerce__OrderService_buildOrder
+  sample_ecommerce__OrderService_buildOrder -->|"14.31ms"| sample_ecommerce__InventoryService_checkStock
+  sample_ecommerce__InventoryService_checkStock -->|"13.41ms"| sample_ecommerce__CacheService_get
+  sample_ecommerce__OrderService_buildOrder -->|"40.33ms"| sample_ecommerce__InventoryService_getProduct
+  sample_ecommerce__InventoryService_getProduct -->|"9.96ms"| sample_ecommerce__CacheService_set
+  sample_ecommerce__handleProfileLoad -->|"35.92ms"| sample_ecommerce__AuditService_getRecentActivity
+  sample_ecommerce__AuditService_getRecentActivity -->|"35.68ms"| sample_ecommerce__DatabaseService_query
+  sample_ecommerce__InventoryService_getProduct -->|"27.66ms"| sample_ecommerce__DatabaseService_findById
+  sample_ecommerce__UserService_authenticate -->|"37.32ms"| sample_ecommerce__DatabaseService_query
+  sample_ecommerce__InventoryService_getProduct -->|"14.26ms"| sample_ecommerce__CacheService_get
+  sample_ecommerce__handleProfileLoad -->|"28.26ms"| sample_ecommerce__UserService_getUserPreferences
+  sample_ecommerce__UserService_getUserPreferences -->|"14.86ms"| sample_ecommerce__CacheService_get
+  sample_ecommerce__OrderService_buildOrder -->|"18.16ms"| sample_ecommerce__UserService_getUser
+  sample_ecommerce__UserService_getUser -->|"11.19ms"| sample_ecommerce__CacheService_get
+  sample_ecommerce__handleProfileLoad -->|"17.65ms"| sample_ecommerce__UserService_getUser
+  sample_ecommerce__handleCheckout -->|"68.74ms"| sample_ecommerce__NotificationService_sendPush
+  sample_ecommerce__NotificationService_sendPush -->|"52.99ms"| sample_ecommerce__AuditService_log
+  sample_ecommerce__handleCheckout -->|"78.43ms"| sample_ecommerce__NotificationService_sendEmail
+  sample_ecommerce__handleCheckout -->|"56.58ms"| sample_ecommerce__OrderService_getOrderSummary
+  sample_ecommerce__OrderService_getOrderSummary -->|"15.24ms"| sample_ecommerce__CacheService_set
+  sample_ecommerce__OrderService_getOrderSummary -->|"25.48ms"| sample_ecommerce__DatabaseService_findById
+  sample_ecommerce__OrderService_getOrderSummary -->|"15.11ms"| sample_ecommerce__CacheService_get
+  sample_ecommerce__handleCheckout -->|"218.89ms"| sample_ecommerce__OrderService_processOrder
+  sample_ecommerce__OrderService_processOrder -->|"54.15ms"| sample_ecommerce__AuditService_log
+  sample_ecommerce__OrderService_processOrder -->|"44.45ms"| sample_ecommerce__DatabaseService_execute
+  sample_ecommerce__OrderService_processOrder -->|"39.38ms"| sample_ecommerce__PaymentService_charge
+  sample_ecommerce__PaymentService_charge -->|"39.1ms"| sample_ecommerce__DatabaseService_execute
+  sample_ecommerce__OrderService_processOrder -->|"83.02ms"| sample_ecommerce__InventoryService_reserveStock
+  sample_ecommerce__InventoryService_reserveStock -->|"12.05ms"| sample_ecommerce__CacheService_invalidate
+  sample_ecommerce__InventoryService_reserveStock -->|"42.98ms"| sample_ecommerce__DatabaseService_execute
+  sample_ecommerce__InventoryService_reserveStock -->|"27.4ms"| sample_ecommerce__DatabaseService_findById
+  sample_ecommerce__OrderService_processOrder -->|"35.3ms"| sample_ecommerce__PaymentService_validateCard
+  sample_ecommerce__PaymentService_validateCard -->|"35.07ms"| sample_ecommerce__DatabaseService_query
+  sample_ecommerce__OrderService_buildOrder -->|"43.48ms"| sample_ecommerce__DatabaseService_execute
+  sample_ecommerce__handleLogin -->|"27.23ms"| sample_ecommerce__UserService_getUserPreferences
+  sample_ecommerce__UserService_authenticate -->|"11.41ms"| sample_ecommerce__CacheService_set
+  sample_ecommerce__handleRefund -->|"62.2ms"| sample_ecommerce__AuditService_log
+  sample_ecommerce__UserService_getUserPreferences -->|"4.52ms"| sample_ecommerce__CacheService_set
+  sample_ecommerce__UserService_getUserPreferences -->|"27.18ms"| sample_ecommerce__DatabaseService_findById
+  sample_ecommerce__handleRefund -->|"85.11ms"| sample_ecommerce__NotificationService_sendSms
+  sample_ecommerce__NotificationService_sendSms -->|"54.68ms"| sample_ecommerce__AuditService_log
+  sample_ecommerce__handleRefund -->|"73.55ms"| sample_ecommerce__NotificationService_sendEmail
+  sample_ecommerce__handleRefund -->|"44.92ms"| sample_ecommerce__PaymentService_refund
+  sample_ecommerce__PaymentService_refund -->|"44.75ms"| sample_ecommerce__DatabaseService_execute
+  sample_ecommerce__handleProductSearch -->|"15.46ms"| sample_ecommerce__InventoryService_getProduct
+  sample_ecommerce__handleProductSearch -->|"26.97ms"| sample_ecommerce__InventoryService_checkStock
+  sample_ecommerce__UserService_getUser -->|"14.68ms"| sample_ecommerce__CacheService_set
+  sample_ecommerce__UserService_getUser -->|"24.44ms"| sample_ecommerce__DatabaseService_findById
+  sample_ecommerce__InventoryService_checkStock -->|"7.39ms"| sample_ecommerce__CacheService_set
+  sample_ecommerce__InventoryService_checkStock -->|"30.39ms"| sample_ecommerce__DatabaseService_findById
 ```
 
 ## Performance
 
-> Total observed CPU-time across all calls: **29.29s**
+> Total observed CPU-time across all calls: **27.71s**
 
 ### Slowest Functions (avg latency)
 
-| # | Function | Avg | P95 | Calls | Time Share |
-| ---: | :--- | ---: | ---: | ---: | ---: |
-| 1 | handleCheckout | 447.3ms | 629.0ms | 14 | 21.4% |
-| 2 | OrderService.processOrder | 255.1ms | 341.8ms | 12 | 10.5% |
-| 3 | handleRefund | 200.7ms | 200.7ms | 1 | 0.7% |
-| 4 | handleLogin | 112.2ms | 166.6ms | 5 | 1.9% |
-| 5 | OrderService.buildOrder | 109.7ms | 181.8ms | 14 | 5.2% |
-| 6 | NotificationService.sendSms | 100.2ms | 100.2ms | 1 | 0.3% |
-| 7 | UserService.authenticate | 94.7ms | 109.6ms | 5 | 1.6% |
-| 8 | InventoryService.reserveStock | 85.1ms | 110.1ms | 14 | 4.1% |
+|   # | Function                      |     Avg |     P95 | Calls | Time Share |
+| --: | :---------------------------- | ------: | ------: | ----: | ---------: |
+|   1 | handleCheckout                | 439.2ms | 607.9ms |    12 |      19.0% |
+|   2 | OrderService.processOrder     | 218.9ms | 342.1ms |    11 |       8.7% |
+|   3 | handleRefund                  | 192.9ms | 200.9ms |     4 |       2.8% |
+|   4 | handleLogin                   | 123.8ms | 170.6ms |     6 |       2.7% |
+|   5 | OrderService.buildOrder       | 112.6ms | 171.0ms |    12 |       4.9% |
+|   6 | UserService.authenticate      | 105.1ms | 123.3ms |     6 |       2.3% |
+|   7 | NotificationService.sendSms   |  85.1ms |  93.2ms |     4 |       1.2% |
+|   8 | InventoryService.reserveStock |  83.0ms |  94.5ms |     9 |       2.7% |
 
 ### Highest Total Time (avg × calls)
 
-| # | Function | Total Time | Calls | Avg |
-| ---: | :--- | ---: | ---: | ---: |
-| 1 | handleCheckout | 6.26s | 14 | 447.3ms |
-| 2 | DatabaseService.execute | 3.70s | 89 | 41.5ms |
-| 3 | OrderService.processOrder | 3.06s | 12 | 255.1ms |
-| 4 | AuditService.log | 2.34s | 43 | 54.3ms |
-| 5 | OrderService.buildOrder | 1.54s | 14 | 109.7ms |
-| 6 | DatabaseService.findById | 1.29s | 48 | 26.9ms |
-| 7 | InventoryService.reserveStock | 1.19s | 14 | 85.1ms |
-| 8 | NotificationService.sendEmail | 1.16s | 15 | 77.5ms |
+|   # | Function                      | Total Time | Calls |     Avg |
+| --: | :---------------------------- | ---------: | ----: | ------: |
+|   1 | handleCheckout                |      5.27s |    12 | 439.2ms |
+|   2 | DatabaseService.execute       |      3.71s |    89 |  41.7ms |
+|   3 | AuditService.log              |      2.76s |    49 |  56.2ms |
+|   4 | OrderService.processOrder     |      2.41s |    11 | 218.9ms |
+|   5 | OrderService.buildOrder       |      1.35s |    12 | 112.6ms |
+|   6 | NotificationService.sendEmail |      1.23s |    16 |  77.1ms |
+|   7 | DatabaseService.findById      |      1.02s |    38 |  26.8ms |
+|   8 | CacheService.get              |      1.01s |    75 |  13.5ms |
 
 ## Call Chains
 
 > Showing the 8 deepest traced call chains observed during this session.
 
-### Chain 1 — handleCheckout *(629.0ms total)*
+### Chain 1 — handleCheckout _(607.9ms total)_
 
 ```
-**handleCheckout** *(629.0ms)*
-  └─ **NotificationService.sendPush** *(75.0ms)*
-    └─ **AuditService.log** *(59.4ms)*
-      └─ **DatabaseService.execute** *(42.7ms)*
-  └─ **NotificationService.sendEmail** *(74.8ms)*
-    └─ **AuditService.log** *(42.7ms)*
-      └─ **DatabaseService.execute** *(26.8ms)*
-  └─ **OrderService.getOrderSummary** *(64.9ms)*
-    └─ **CacheService.set** *(15.8ms)*
-    └─ **DatabaseService.findById** *(31.9ms)*
-    └─ **CacheService.get** *(15.7ms)*
-  └─ **OrderService.processOrder** *(341.8ms)*
-    └─ **AuditService.log** *(48.5ms)*
-      └─ **DatabaseService.execute** *(32.4ms)*
-    └─ **DatabaseService.execute** *(48.2ms)*
-    └─ **PaymentService.charge** *(32.2ms)*
-      └─ **DatabaseService.execute** *(31.5ms)*
-    └─ **InventoryService.reserveStock** *(97.1ms)*
-      └─ **CacheService.invalidate** *(15.6ms)*
-      └─ **DatabaseService.execute** *(48.0ms)*
-      └─ **DatabaseService.findById** *(32.1ms)*
-    └─ **InventoryService.reserveStock** *(82.6ms)*
-      └─ **CacheService.invalidate** *(15.6ms)*
-      └─ **DatabaseService.execute** *(34.5ms)*
-      └─ **DatabaseService.findById** *(31.1ms)*
-    └─ **PaymentService.validateCard** *(32.1ms)*
-      └─ **DatabaseService.query** *(31.7ms)*
-  └─ **OrderService.buildOrder** *(146.4ms)*
-    └─ **DatabaseService.execute** *(50.1ms)*
-    └─ **InventoryService.checkStock** *(15.0ms)*
-      └─ **CacheService.get** *(14.6ms)*
-    └─ **InventoryService.checkStock** *(1.7ms)*
-      └─ **CacheService.get** *(1.6ms)*
-    └─ **InventoryService.getProduct** *(34.6ms)*
-      └─ **CacheService.set** *(1.3ms)*
-      └─ **DatabaseService.findById** *(32.3ms)*
-      └─ **CacheService.get** *(604µs)*
-    └─ **InventoryService.getProduct** *(32.9ms)*
-      └─ **CacheService.set** *(16.1ms)*
-      └─ **DatabaseService.findById** *(13.7ms)*
-      └─ **CacheService.get** *(2.7ms)*
-    └─ **UserService.getUser** *(45.9ms)*
-      └─ **CacheService.set** *(15.0ms)*
-      └─ **DatabaseService.findById** *(27.1ms)*
-      └─ **CacheService.get** *(2.9ms)*
-```
-
-### Chain 2 — handleCheckout *(612.7ms total)*
-
-```
-**handleCheckout** *(612.7ms)*
-  └─ **NotificationService.sendEmail** *(95.0ms)*
-    └─ **AuditService.log** *(63.2ms)*
-      └─ **DatabaseService.execute** *(47.5ms)*
-  └─ **OrderService.getOrderSummary** *(47.1ms)*
-    └─ **CacheService.set** *(15.6ms)*
-    └─ **DatabaseService.findById** *(15.7ms)*
-    └─ **CacheService.get** *(14.6ms)*
-  └─ **OrderService.processOrder** *(340.6ms)*
-    └─ **AuditService.log** *(48.8ms)*
-      └─ **DatabaseService.execute** *(32.5ms)*
-    └─ **DatabaseService.execute** *(48.6ms)*
-    └─ **PaymentService.charge** *(32µs)*
-    └─ **InventoryService.reserveStock** *(94.5ms)*
+**handleCheckout** *(607.9ms)*
+  └─ **NotificationService.sendPush** *(78.8ms)*
+    └─ **AuditService.log** *(63.0ms)*
+      └─ **DatabaseService.execute** *(47.0ms)*
+  └─ **NotificationService.sendEmail** *(63.1ms)*
+    └─ **AuditService.log** *(47.2ms)*
+      └─ **DatabaseService.execute** *(31.2ms)*
+  └─ **OrderService.getOrderSummary** *(46.7ms)*
+    └─ **CacheService.set** *(14.3ms)*
+    └─ **DatabaseService.findById** *(16.6ms)*
+    └─ **CacheService.get** *(15.3ms)*
+  └─ **OrderService.processOrder** *(342.1ms)*
+    └─ **AuditService.log** *(46.8ms)*
+      └─ **DatabaseService.execute** *(30.9ms)*
+    └─ **DatabaseService.execute** *(45.3ms)*
+    └─ **PaymentService.charge** *(31.9ms)*
+      └─ **DatabaseService.execute** *(31.8ms)*
+    └─ **InventoryService.reserveStock** *(92.0ms)*
       └─ **CacheService.invalidate** *(15.4ms)*
-      └─ **DatabaseService.execute** *(62.1ms)*
-      └─ **DatabaseService.findById** *(16.4ms)*
-    └─ **InventoryService.reserveStock** *(98.3ms)*
-      └─ **CacheService.invalidate** *(15.6ms)*
-      └─ **DatabaseService.execute** *(50.7ms)*
-      └─ **DatabaseService.findById** *(30.8ms)*
-    └─ **PaymentService.validateCard** *(49.5ms)*
-      └─ **DatabaseService.query** *(49.1ms)*
-  └─ **OrderService.buildOrder** *(129.2ms)*
-    └─ **DatabaseService.execute** *(50.2ms)*
+      └─ **DatabaseService.execute** *(45.6ms)*
+      └─ **DatabaseService.findById** *(30.6ms)*
+    └─ **InventoryService.reserveStock** *(94.1ms)*
+      └─ **CacheService.invalidate** *(293µs)*
+      └─ **DatabaseService.execute** *(61.9ms)*
+      └─ **DatabaseService.findById** *(31.2ms)*
+    └─ **PaymentService.validateCard** *(31.3ms)*
+      └─ **DatabaseService.query** *(31.0ms)*
+  └─ **OrderService.buildOrder** *(139.5ms)*
+    └─ **DatabaseService.execute** *(46.0ms)*
     └─ **InventoryService.checkStock** *(15.6ms)*
-      └─ **CacheService.get** *(15.3ms)*
-    └─ **InventoryService.getProduct** *(50.4ms)*
-      └─ **CacheService.set** *(802µs)*
-      └─ **DatabaseService.findById** *(33.2ms)*
-      └─ **CacheService.get** *(15.9ms)*
-    └─ **InventoryService.checkStock** *(3.0ms)*
-      └─ **CacheService.get** *(2.8ms)*
-    └─ **InventoryService.getProduct** *(15.8ms)*
-      └─ **CacheService.get** *(15.5ms)*
-    └─ **UserService.getUser** *(12.6ms)*
-      └─ **CacheService.get** *(12.5ms)*
+      └─ **CacheService.get** *(15.4ms)*
+    └─ **InventoryService.checkStock** *(15.5ms)*
+      └─ **CacheService.get** *(15.4ms)*
+    └─ **InventoryService.getProduct** *(62.0ms)*
+      └─ **CacheService.set** *(15.2ms)*
+      └─ **DatabaseService.findById** *(31.4ms)*
+      └─ **CacheService.get** *(14.7ms)*
+    └─ **InventoryService.getProduct** *(46.8ms)*
+      └─ **CacheService.set** *(292µs)*
+      └─ **DatabaseService.findById** *(31.1ms)*
+      └─ **CacheService.get** *(15.2ms)*
+    └─ **UserService.getUser** *(15.3ms)*
+      └─ **CacheService.get** *(15.1ms)*
 ```
 
-### Chain 3 — handleCheckout *(582.1ms total)*
+### Chain 2 — handleCheckout _(547.5ms total)_
 
 ```
-**handleCheckout** *(582.1ms)*
-  └─ **NotificationService.sendEmail** *(78.4ms)*
-    └─ **AuditService.log** *(49.3ms)*
-      └─ **DatabaseService.execute** *(34.7ms)*
-  └─ **NotificationService.sendPush** *(65.8ms)*
-    └─ **AuditService.log** *(38.1ms)*
-      └─ **DatabaseService.execute** *(35.9ms)*
-  └─ **OrderService.getOrderSummary** *(63.2ms)*
-    └─ **CacheService.set** *(14.8ms)*
-    └─ **DatabaseService.findById** *(31.8ms)*
-    └─ **CacheService.get** *(16.1ms)*
-  └─ **OrderService.processOrder** *(307.6ms)*
-    └─ **AuditService.log** *(48.4ms)*
-      └─ **DatabaseService.execute** *(32.5ms)*
-    └─ **DatabaseService.execute** *(32.8ms)*
-    └─ **PaymentService.charge** *(31.6ms)*
-      └─ **DatabaseService.execute** *(31.3ms)*
-    └─ **InventoryService.reserveStock** *(64.9ms)*
-      └─ **CacheService.invalidate** *(190µs)*
-      └─ **DatabaseService.execute** *(48.2ms)*
-      └─ **DatabaseService.findById** *(15.9ms)*
-    └─ **InventoryService.reserveStock** *(97.2ms)*
-      └─ **CacheService.invalidate** *(15.6ms)*
-      └─ **DatabaseService.execute** *(49.0ms)*
-      └─ **DatabaseService.findById** *(32.0ms)*
-    └─ **PaymentService.validateCard** *(32.2ms)*
-      └─ **DatabaseService.query** *(32.1ms)*
-  └─ **OrderService.buildOrder** *(132.2ms)*
-    └─ **DatabaseService.execute** *(49.7ms)*
-    └─ **InventoryService.checkStock** *(15.8ms)*
+**handleCheckout** *(547.5ms)*
+  └─ **NotificationService.sendEmail** *(78.7ms)*
+    └─ **AuditService.log** *(63.4ms)*
+      └─ **DatabaseService.execute** *(47.1ms)*
+  └─ **NotificationService.sendPush** *(62.6ms)*
+    └─ **AuditService.log** *(47.4ms)*
+      └─ **DatabaseService.execute** *(31.2ms)*
+  └─ **OrderService.getOrderSummary** *(62.3ms)*
+    └─ **CacheService.set** *(15.2ms)*
+    └─ **DatabaseService.findById** *(31.0ms)*
+    └─ **CacheService.get** *(15.2ms)*
+  └─ **OrderService.processOrder** *(267.8ms)*
+    └─ **AuditService.log** *(62.2ms)*
+      └─ **DatabaseService.execute** *(46.3ms)*
+    └─ **DatabaseService.execute** *(47.6ms)*
+    └─ **PaymentService.charge** *(47.9ms)*
+      └─ **DatabaseService.execute** *(47.4ms)*
+    └─ **InventoryService.reserveStock** *(77.1ms)*
+      └─ **CacheService.invalidate** *(15.9ms)*
+      └─ **DatabaseService.execute** *(45.3ms)*
+      └─ **DatabaseService.findById** *(15.3ms)*
+    └─ **PaymentService.validateCard** *(32.5ms)*
+      └─ **DatabaseService.query** *(32.4ms)*
+  └─ **OrderService.buildOrder** *(138.0ms)*
+    └─ **DatabaseService.execute** *(46.3ms)*
+    └─ **InventoryService.checkStock** *(16.0ms)*
       └─ **CacheService.get** *(15.8ms)*
-    └─ **InventoryService.getProduct** *(51.7ms)*
-      └─ **CacheService.set** *(17.6ms)*
-      └─ **DatabaseService.findById** *(15.5ms)*
-      └─ **CacheService.get** *(18.1ms)*
-    └─ **InventoryService.checkStock** *(16.7ms)*
-      └─ **CacheService.get** *(16.7ms)*
-    └─ **InventoryService.getProduct** *(1.8ms)*
-      └─ **CacheService.get** *(1.7ms)*
-    └─ **UserService.getUser** *(14.4ms)*
+    └─ **InventoryService.getProduct** *(61.6ms)*
+      └─ **CacheService.set** *(15.7ms)*
+      └─ **DatabaseService.findById** *(30.0ms)*
+      └─ **CacheService.get** *(15.2ms)*
+    └─ **UserService.getUser** *(13.6ms)*
+      └─ **CacheService.get** *(13.4ms)*
+```
+
+### Chain 3 — handleCheckout _(544.7ms total)_
+
+```
+**handleCheckout** *(544.7ms)*
+  └─ **NotificationService.sendPush** *(79.3ms)*
+    └─ **AuditService.log** *(63.6ms)*
+      └─ **DatabaseService.execute** *(47.8ms)*
+  └─ **NotificationService.sendEmail** *(79.2ms)*
+    └─ **AuditService.log** *(47.7ms)*
+      └─ **DatabaseService.execute** *(31.4ms)*
+  └─ **OrderService.getOrderSummary** *(62.1ms)*
+    └─ **CacheService.set** *(14.9ms)*
+    └─ **DatabaseService.findById** *(31.5ms)*
+    └─ **CacheService.get** *(15.0ms)*
+  └─ **OrderService.processOrder** *(279.3ms)*
+    └─ **AuditService.log** *(47.1ms)*
+      └─ **DatabaseService.execute** *(31.7ms)*
+    └─ **DatabaseService.execute** *(46.0ms)*
+    └─ **PaymentService.charge** *(62.3ms)*
+      └─ **DatabaseService.execute** *(62.0ms)*
+    └─ **InventoryService.reserveStock** *(93.0ms)*
+      └─ **CacheService.invalidate** *(15.1ms)*
+      └─ **DatabaseService.execute** *(46.1ms)*
+      └─ **DatabaseService.findById** *(31.0ms)*
+    └─ **PaymentService.validateCard** *(30.2ms)*
+      └─ **DatabaseService.query** *(30.0ms)*
+  └─ **OrderService.buildOrder** *(123.1ms)*
+    └─ **DatabaseService.execute** *(30.9ms)*
+    └─ **InventoryService.checkStock** *(16.1ms)*
+      └─ **CacheService.get** *(15.8ms)*
+    └─ **InventoryService.getProduct** *(61.3ms)*
+      └─ **CacheService.set** *(13.7ms)*
+      └─ **DatabaseService.findById** *(32.0ms)*
+      └─ **CacheService.get** *(15.0ms)*
+    └─ **UserService.getUser** *(14.2ms)*
       └─ **CacheService.get** *(13.9ms)*
 ```
 
-### Chain 4 — handleCheckout *(581.9ms total)*
+### Chain 4 — handleCheckout _(530.5ms total)_
 
 ```
-**handleCheckout** *(581.9ms)*
-  └─ **NotificationService.sendPush** *(83.8ms)*
-    └─ **AuditService.log** *(65.5ms)*
-      └─ **DatabaseService.execute** *(49.3ms)*
-  └─ **NotificationService.sendEmail** *(83.6ms)*
-    └─ **AuditService.log** *(65.1ms)*
-      └─ **DatabaseService.execute** *(48.6ms)*
-  └─ **OrderService.getOrderSummary** *(48.9ms)*
-    └─ **CacheService.set** *(15.4ms)*
-    └─ **DatabaseService.findById** *(16.9ms)*
-    └─ **CacheService.get** *(15.4ms)*
-  └─ **OrderService.processOrder** *(266.4ms)*
-    └─ **AuditService.log** *(64.9ms)*
-      └─ **DatabaseService.execute** *(48.7ms)*
-    └─ **DatabaseService.execute** *(32.8ms)*
-    └─ **PaymentService.charge** *(35.7ms)*
-      └─ **DatabaseService.execute** *(35.3ms)*
-    └─ **InventoryService.reserveStock** *(97.6ms)*
-      └─ **CacheService.invalidate** *(10.9ms)*
-      └─ **DatabaseService.execute** *(54.4ms)*
+**handleCheckout** *(530.5ms)*
+  └─ **NotificationService.sendEmail** *(79.2ms)*
+    └─ **AuditService.log** *(63.4ms)*
+      └─ **DatabaseService.execute** *(47.4ms)*
+  └─ **NotificationService.sendPush** *(78.9ms)*
+    └─ **AuditService.log** *(63.2ms)*
+      └─ **DatabaseService.execute** *(47.1ms)*
+  └─ **OrderService.getOrderSummary** *(62.9ms)*
+    └─ **CacheService.set** *(15.9ms)*
+    └─ **DatabaseService.findById** *(31.5ms)*
+    └─ **CacheService.get** *(14.8ms)*
+  └─ **OrderService.processOrder** *(266.3ms)*
+    └─ **AuditService.log** *(47.0ms)*
+      └─ **DatabaseService.execute** *(31.3ms)*
+    └─ **DatabaseService.execute** *(46.8ms)*
+    └─ **PaymentService.charge** *(31.1ms)*
+      └─ **DatabaseService.execute** *(30.6ms)*
+    └─ **InventoryService.reserveStock** *(94.5ms)*
+      └─ **CacheService.invalidate** *(15.9ms)*
+      └─ **DatabaseService.execute** *(46.7ms)*
       └─ **DatabaseService.findById** *(31.1ms)*
-    └─ **PaymentService.validateCard** *(34.6ms)*
-      └─ **DatabaseService.query** *(34.1ms)*
-  └─ **OrderService.buildOrder** *(181.8ms)*
-    └─ **DatabaseService.execute** *(50.0ms)*
-    └─ **InventoryService.checkStock** *(14.6ms)*
+    └─ **PaymentService.validateCard** *(46.2ms)*
+      └─ **DatabaseService.query** *(46.0ms)*
+  └─ **OrderService.buildOrder** *(121.2ms)*
+    └─ **DatabaseService.execute** *(46.3ms)*
+    └─ **InventoryService.checkStock** *(14.5ms)*
       └─ **CacheService.get** *(14.2ms)*
-    └─ **InventoryService.getProduct** *(66.7ms)*
-      └─ **CacheService.set** *(17.5ms)*
-      └─ **DatabaseService.findById** *(32.0ms)*
-      └─ **CacheService.get** *(16.6ms)*
-    └─ **UserService.getUser** *(49.8ms)*
-      └─ **CacheService.set** *(18.3ms)*
-      └─ **DatabaseService.findById** *(16.3ms)*
-      └─ **CacheService.get** *(14.8ms)*
+    └─ **InventoryService.getProduct** *(15.8ms)*
+      └─ **CacheService.get** *(15.5ms)*
+    └─ **UserService.getUser** *(44.0ms)*
+      └─ **CacheService.set** *(14.9ms)*
+      └─ **DatabaseService.findById** *(15.0ms)*
+      └─ **CacheService.get** *(13.7ms)*
 ```
 
-### Chain 5 — handleCheckout *(565.3ms total)*
+### Chain 5 — handleCheckout _(515.7ms total)_
 
 ```
-**handleCheckout** *(565.3ms)*
-  └─ **NotificationService.sendEmail** *(79.6ms)*
-    └─ **AuditService.log** *(47.5ms)*
-      └─ **DatabaseService.execute** *(31.8ms)*
-  └─ **NotificationService.sendPush** *(64.1ms)*
-    └─ **AuditService.log** *(48.6ms)*
-      └─ **DatabaseService.execute** *(31.7ms)*
-  └─ **OrderService.getOrderSummary** *(47.6ms)*
-    └─ **CacheService.set** *(14.9ms)*
-    └─ **DatabaseService.findById** *(16.6ms)*
-    └─ **CacheService.get** *(15.5ms)*
-  └─ **OrderService.processOrder** *(308.0ms)*
-    └─ **AuditService.log** *(49.1ms)*
-      └─ **DatabaseService.execute** *(32.8ms)*
-    └─ **DatabaseService.execute** *(46.7ms)*
-    └─ **PaymentService.charge** *(47.3ms)*
+**handleCheckout** *(515.7ms)*
+  └─ **NotificationService.sendEmail** *(94.5ms)*
+    └─ **AuditService.log** *(63.2ms)*
       └─ **DatabaseService.execute** *(46.9ms)*
-    └─ **InventoryService.reserveStock** *(48.9ms)*
-      └─ **CacheService.invalidate** *(205µs)*
-      └─ **DatabaseService.execute** *(31.9ms)*
-      └─ **DatabaseService.findById** *(16.3ms)*
-    └─ **InventoryService.reserveStock** *(81.6ms)*
-      └─ **CacheService.invalidate** *(15.7ms)*
-      └─ **DatabaseService.execute** *(33.8ms)*
-      └─ **DatabaseService.findById** *(30.9ms)*
-    └─ **PaymentService.validateCard** *(33.6ms)*
-      └─ **DatabaseService.query** *(33.3ms)*
-  └─ **OrderService.buildOrder** *(129.3ms)*
-    └─ **DatabaseService.execute** *(50.3ms)*
-    └─ **InventoryService.checkStock** *(15.7ms)*
-      └─ **CacheService.get** *(15.6ms)*
-    └─ **InventoryService.getProduct** *(50.8ms)*
-      └─ **CacheService.set** *(945µs)*
-      └─ **DatabaseService.findById** *(33.5ms)*
-      └─ **CacheService.get** *(16.2ms)*
-    └─ **InventoryService.checkStock** *(2.7ms)*
-      └─ **CacheService.get** *(2.7ms)*
-    └─ **InventoryService.getProduct** *(16.3ms)*
-      └─ **CacheService.get** *(16.2ms)*
-    └─ **UserService.getUser** *(12.2ms)*
-      └─ **CacheService.get** *(11.8ms)*
-```
-
-### Chain 6 — handleCheckout *(533.0ms total)*
-
-```
-**handleCheckout** *(533.0ms)*
-  └─ **NotificationService.sendEmail** *(76.5ms)*
-    └─ **AuditService.log** *(44.6ms)*
-      └─ **DatabaseService.execute** *(29.0ms)*
-  └─ **NotificationService.sendPush** *(76.2ms)*
-    └─ **AuditService.log** *(60.0ms)*
-      └─ **DatabaseService.execute** *(44.2ms)*
-  └─ **OrderService.getOrderSummary** *(64.4ms)*
-    └─ **CacheService.set** *(15.6ms)*
-    └─ **DatabaseService.findById** *(32.4ms)*
-    └─ **CacheService.get** *(15.5ms)*
-  └─ **OrderService.processOrder** *(277.7ms)*
-    └─ **AuditService.log** *(48.9ms)*
-      └─ **DatabaseService.execute** *(33.3ms)*
-    └─ **DatabaseService.execute** *(48.0ms)*
-    └─ **PaymentService.charge** *(32.3ms)*
-      └─ **DatabaseService.execute** *(31.8ms)*
-    └─ **InventoryService.reserveStock** *(97.1ms)*
-      └─ **CacheService.invalidate** *(15.2ms)*
-      └─ **DatabaseService.execute** *(48.5ms)*
-      └─ **DatabaseService.findById** *(32.7ms)*
-    └─ **PaymentService.validateCard** *(50.7ms)*
-      └─ **DatabaseService.query** *(50.3ms)*
-  └─ **OrderService.buildOrder** *(113.6ms)*
-    └─ **DatabaseService.execute** *(47.1ms)*
-    └─ **InventoryService.checkStock** *(17.5ms)*
-      └─ **CacheService.get** *(17.3ms)*
-    └─ **InventoryService.getProduct** *(33.6ms)*
-      └─ **CacheService.set** *(14.8ms)*
-      └─ **DatabaseService.findById** *(16.7ms)*
-      └─ **CacheService.get** *(1.7ms)*
-    └─ **UserService.getUser** *(14.8ms)*
-      └─ **CacheService.get** *(14.8ms)*
-```
-
-### Chain 7 — handleCheckout *(531.7ms total)*
-
-```
-**handleCheckout** *(531.7ms)*
-  └─ **NotificationService.sendEmail** *(91.8ms)*
-    └─ **AuditService.log** *(75.2ms)*
-      └─ **DatabaseService.execute** *(58.9ms)*
-  └─ **NotificationService.sendPush** *(64.0ms)*
-    └─ **AuditService.log** *(47.4ms)*
-      └─ **DatabaseService.execute** *(31.4ms)*
-  └─ **OrderService.getOrderSummary** *(64.5ms)*
-    └─ **CacheService.set** *(15.8ms)*
-    └─ **DatabaseService.findById** *(31.9ms)*
-    └─ **CacheService.get** *(15.8ms)*
-  └─ **OrderService.processOrder** *(261.1ms)*
-    └─ **AuditService.log** *(48.3ms)*
-      └─ **DatabaseService.execute** *(32.0ms)*
-    └─ **DatabaseService.execute** *(48.9ms)*
-    └─ **PaymentService.charge** *(47.6ms)*
-      └─ **DatabaseService.execute** *(47.2ms)*
-    └─ **InventoryService.reserveStock** *(81.4ms)*
-      └─ **CacheService.invalidate** *(16.1ms)*
-      └─ **DatabaseService.execute** *(32.4ms)*
-      └─ **DatabaseService.findById** *(31.8ms)*
-    └─ **PaymentService.validateCard** *(34.5ms)*
-      └─ **DatabaseService.query** *(34.2ms)*
-  └─ **OrderService.buildOrder** *(113.5ms)*
-    └─ **DatabaseService.execute** *(31.7ms)*
-    └─ **InventoryService.checkStock** *(15.6ms)*
-      └─ **CacheService.get** *(15.3ms)*
-    └─ **InventoryService.getProduct** *(51.2ms)*
-      └─ **CacheService.set** *(17.6ms)*
-      └─ **DatabaseService.findById** *(31.8ms)*
-      └─ **CacheService.get** *(1.6ms)*
-    └─ **UserService.getUser** *(14.6ms)*
-      └─ **CacheService.get** *(14.5ms)*
-```
-
-### Chain 8 — handleCheckout *(515.9ms total)*
-
-```
-**handleCheckout** *(515.9ms)*
-  └─ **NotificationService.sendEmail** *(80.6ms)*
-    └─ **AuditService.log** *(64.7ms)*
-      └─ **DatabaseService.execute** *(48.8ms)*
-  └─ **NotificationService.sendPush** *(57.6ms)*
-    └─ **AuditService.log** *(41.5ms)*
-      └─ **DatabaseService.execute** *(25.4ms)*
-  └─ **OrderService.getOrderSummary** *(48.3ms)*
-    └─ **CacheService.set** *(16.2ms)*
-    └─ **DatabaseService.findById** *(15.7ms)*
-    └─ **CacheService.get** *(15.9ms)*
-  └─ **OrderService.processOrder** *(305.3ms)*
-    └─ **AuditService.log** *(81.4ms)*
-      └─ **DatabaseService.execute** *(65.0ms)*
-    └─ **DatabaseService.execute** *(47.7ms)*
-    └─ **PaymentService.charge** *(48.8ms)*
-      └─ **DatabaseService.execute** *(48.6ms)*
-    └─ **InventoryService.reserveStock** *(77.2ms)*
+  └─ **NotificationService.sendPush** *(63.0ms)*
+    └─ **AuditService.log** *(46.3ms)*
+      └─ **DatabaseService.execute** *(31.3ms)*
+  └─ **OrderService.getOrderSummary** *(61.9ms)*
+    └─ **CacheService.set** *(14.9ms)*
+    └─ **DatabaseService.findById** *(31.2ms)*
+    └─ **CacheService.get** *(15.2ms)*
+  └─ **OrderService.processOrder** *(268.0ms)*
+    └─ **AuditService.log** *(63.4ms)*
+      └─ **DatabaseService.execute** *(48.3ms)*
+    └─ **DatabaseService.execute** *(47.2ms)*
+    └─ **PaymentService.charge** *(48.2ms)*
+      └─ **DatabaseService.execute** *(47.9ms)*
+    └─ **InventoryService.reserveStock** *(77.3ms)*
       └─ **CacheService.invalidate** *(15.3ms)*
-      └─ **DatabaseService.execute** *(41.8ms)*
-      └─ **DatabaseService.findById** *(19.6ms)*
-    └─ **PaymentService.validateCard** *(49.3ms)*
-      └─ **DatabaseService.query** *(49.1ms)*
-  └─ **OrderService.buildOrder** *(81.1ms)*
-    └─ **DatabaseService.execute** *(49.2ms)*
-    └─ **InventoryService.checkStock** *(14.0ms)*
-      └─ **CacheService.get** *(13.8ms)*
-    └─ **InventoryService.getProduct** *(1.5ms)*
-      └─ **CacheService.get** *(1.4ms)*
-    └─ **UserService.getUser** *(16.0ms)*
-      └─ **CacheService.get** *(15.9ms)*
+      └─ **DatabaseService.execute** *(31.4ms)*
+      └─ **DatabaseService.findById** *(30.0ms)*
+    └─ **PaymentService.validateCard** *(31.3ms)*
+      └─ **DatabaseService.query** *(31.0ms)*
+  └─ **OrderService.buildOrder** *(90.4ms)*
+    └─ **DatabaseService.execute** *(31.0ms)*
+    └─ **InventoryService.checkStock** *(14.7ms)*
+      └─ **CacheService.get** *(14.4ms)*
+    └─ **InventoryService.getProduct** *(30.8ms)*
+      └─ **CacheService.set** *(15.4ms)*
+      └─ **DatabaseService.findById** *(14.4ms)*
+      └─ **CacheService.get** *(403µs)*
+    └─ **UserService.getUser** *(13.4ms)*
+      └─ **CacheService.get** *(12.9ms)*
+```
+
+### Chain 6 — handleCheckout _(513.5ms total)_
+
+```
+**handleCheckout** *(513.5ms)*
+  └─ **NotificationService.sendPush** *(62.9ms)*
+    └─ **AuditService.log** *(46.9ms)*
+      └─ **DatabaseService.execute** *(31.8ms)*
+  └─ **NotificationService.sendEmail** *(62.7ms)*
+    └─ **AuditService.log** *(46.7ms)*
+      └─ **DatabaseService.execute** *(31.5ms)*
+  └─ **OrderService.getOrderSummary** *(61.3ms)*
+    └─ **CacheService.set** *(15.2ms)*
+    └─ **DatabaseService.findById** *(30.6ms)*
+    └─ **CacheService.get** *(15.0ms)*
+  └─ **OrderService.processOrder** *(265.0ms)*
+    └─ **AuditService.log** *(47.3ms)*
+      └─ **DatabaseService.execute** *(31.3ms)*
+    └─ **DatabaseService.execute** *(45.0ms)*
+    └─ **PaymentService.charge** *(31.3ms)*
+      └─ **DatabaseService.execute** *(31.1ms)*
+    └─ **InventoryService.reserveStock** *(93.6ms)*
+      └─ **CacheService.invalidate** *(15.5ms)*
+      └─ **DatabaseService.execute** *(46.3ms)*
+      └─ **DatabaseService.findById** *(31.4ms)*
+    └─ **PaymentService.validateCard** *(47.2ms)*
+      └─ **DatabaseService.query** *(47.1ms)*
+  └─ **OrderService.buildOrder** *(123.5ms)*
+    └─ **DatabaseService.execute** *(45.9ms)*
+    └─ **InventoryService.checkStock** *(15.5ms)*
+      └─ **CacheService.get** *(15.4ms)*
+    └─ **InventoryService.getProduct** *(47.0ms)*
+      └─ **CacheService.set** *(259µs)*
+      └─ **DatabaseService.findById** *(30.9ms)*
+      └─ **CacheService.get** *(15.5ms)*
+    └─ **UserService.getUser** *(14.6ms)*
+      └─ **CacheService.get** *(14.4ms)*
+```
+
+### Chain 7 — handleCheckout _(466.8ms total)_
+
+```
+**handleCheckout** *(466.8ms)*
+  └─ **NotificationService.sendEmail** *(77.4ms)*
+    └─ **AuditService.log** *(62.0ms)*
+      └─ **DatabaseService.execute** *(46.4ms)*
+  └─ **NotificationService.sendPush** *(62.0ms)*
+    └─ **AuditService.log** *(46.7ms)*
+      └─ **DatabaseService.execute** *(31.1ms)*
+  └─ **OrderService.getOrderSummary** *(62.7ms)*
+    └─ **CacheService.set** *(15.9ms)*
+    └─ **DatabaseService.findById** *(30.8ms)*
+    └─ **CacheService.get** *(15.1ms)*
+  └─ **OrderService.processOrder** *(234.0ms)*
+    └─ **AuditService.log** *(47.1ms)*
+      └─ **DatabaseService.execute** *(31.1ms)*
+    └─ **DatabaseService.execute** *(46.1ms)*
+    └─ **PaymentService.charge** *(30.7ms)*
+      └─ **DatabaseService.execute** *(30.5ms)*
+    └─ **InventoryService.reserveStock** *(63.1ms)*
+      └─ **CacheService.invalidate** *(15.1ms)*
+      └─ **DatabaseService.execute** *(32.0ms)*
+      └─ **DatabaseService.findById** *(15.6ms)*
+    └─ **PaymentService.validateCard** *(46.4ms)*
+      └─ **DatabaseService.query** *(46.1ms)*
+  └─ **OrderService.buildOrder** *(91.8ms)*
+    └─ **DatabaseService.execute** *(45.8ms)*
+    └─ **InventoryService.checkStock** *(15.8ms)*
+      └─ **CacheService.get** *(15.7ms)*
+    └─ **InventoryService.getProduct** *(15.4ms)*
+      └─ **CacheService.get** *(15.3ms)*
+    └─ **UserService.getUser** *(14.2ms)*
+      └─ **CacheService.get** *(14.0ms)*
+```
+
+### Chain 8 — handleCheckout _(437.0ms total)_
+
+```
+**handleCheckout** *(437.0ms)*
+  └─ **NotificationService.sendEmail** *(78.0ms)*
+    └─ **AuditService.log** *(62.2ms)*
+      └─ **DatabaseService.execute** *(46.5ms)*
+  └─ **NotificationService.sendPush** *(62.6ms)*
+    └─ **AuditService.log** *(46.8ms)*
+      └─ **DatabaseService.execute** *(31.3ms)*
+  └─ **OrderService.getOrderSummary** *(47.7ms)*
+    └─ **CacheService.set** *(15.5ms)*
+    └─ **DatabaseService.findById** *(15.9ms)*
+    └─ **CacheService.get** *(15.6ms)*
+  └─ **OrderService.processOrder** *(204.1ms)*
+    └─ **AuditService.log** *(46.9ms)*
+      └─ **DatabaseService.execute** *(31.3ms)*
+    └─ **DatabaseService.execute** *(31.6ms)*
+    └─ **PaymentService.charge** *(31.6ms)*
+      └─ **DatabaseService.execute** *(31.3ms)*
+    └─ **InventoryService.reserveStock** *(62.5ms)*
+      └─ **CacheService.invalidate** *(50µs)*
+      └─ **DatabaseService.execute** *(31.5ms)*
+      └─ **DatabaseService.findById** *(30.6ms)*
+    └─ **PaymentService.validateCard** *(30.8ms)*
+      └─ **DatabaseService.query** *(30.6ms)*
+  └─ **OrderService.buildOrder** *(106.1ms)*
+    └─ **DatabaseService.execute** *(45.9ms)*
+    └─ **InventoryService.checkStock** *(675µs)*
+      └─ **CacheService.get** *(575µs)*
+    └─ **InventoryService.getProduct** *(45.5ms)*
+      └─ **CacheService.set** *(14.4ms)*
+      └─ **DatabaseService.findById** *(16.3ms)*
+      └─ **CacheService.get** *(14.3ms)*
+    └─ **UserService.getUser** *(13.5ms)*
+      └─ **CacheService.get** *(13.4ms)*
 ```
 
 ## Function Index
 
-| Function | Agent | File | Avg | P95 | Calls |
-| :--- | :--- | :--- | ---: | ---: | ---: |
-| AuditService.getRecentActivity | sample-ecommerce | `packages/sample-app/src/services/AuditService.ts:31` | 36.8ms | 49.5ms | 5 |
-| AuditService.log | sample-ecommerce | `packages/sample-app/src/services/AuditService.ts:15` | 54.3ms | 69.9ms | 43 |
-| CacheService.get *(⚠ anomaly)* | sample-ecommerce | `packages/sample-app/src/services/CacheService.ts:15` | 11.7ms | 17.3ms | 98 |
-| CacheService.invalidate | sample-ecommerce | `packages/sample-app/src/services/CacheService.ts:33` | 11.9ms | 16.1ms | 14 |
-| CacheService.set | sample-ecommerce | `packages/sample-app/src/services/CacheService.ts:24` | 12.5ms | 18.0ms | 36 |
-| DatabaseService.execute | sample-ecommerce | `packages/sample-app/src/services/DatabaseService.ts:59` | 41.5ms | 53.6ms | 89 |
-| DatabaseService.findById | sample-ecommerce | `packages/sample-app/src/services/DatabaseService.ts:36` | 26.9ms | 35.5ms | 48 |
-| DatabaseService.query | sample-ecommerce | `packages/sample-app/src/services/DatabaseService.ts:46` | 36.4ms | 49.1ms | 22 |
-| handleCheckout *(⚠ anomaly, ✗ error)* | sample-ecommerce | `packages/sample-app/src/index.ts:78` | 447.3ms | 629.0ms | 14 |
-| handleLogin | sample-ecommerce | `packages/sample-app/src/index.ts:94` | 112.2ms | 166.6ms | 5 |
-| handleProductSearch | sample-ecommerce | `packages/sample-app/src/index.ts:117` | 57.3ms | 83.5ms | 5 |
-| handleProfileLoad | sample-ecommerce | `packages/sample-app/src/index.ts:107` | 79.8ms | 116.9ms | 5 |
-| handleRefund | sample-ecommerce | `packages/sample-app/src/index.ts:132` | 200.7ms | 200.7ms | 1 |
-| InventoryService.checkStock | sample-ecommerce | `packages/sample-app/src/services/InventoryService.ts:22` | 20.2ms | 51.8ms | 30 |
-| InventoryService.getProduct | sample-ecommerce | `packages/sample-app/src/services/InventoryService.ts:39` | 21.4ms | 51.7ms | 30 |
-| InventoryService.reserveStock | sample-ecommerce | `packages/sample-app/src/services/InventoryService.ts:54` | 85.1ms | 110.1ms | 14 |
-| NotificationService.sendEmail | sample-ecommerce | `packages/sample-app/src/services/NotificationService.ts:16` | 77.5ms | 95.0ms | 15 |
-| NotificationService.sendPush | sample-ecommerce | `packages/sample-app/src/services/NotificationService.ts:26` | 70.6ms | 85.0ms | 9 |
-| NotificationService.sendSms | sample-ecommerce | `packages/sample-app/src/services/NotificationService.ts:40` | 100.2ms | 100.2ms | 1 |
-| OrderService.buildOrder *(⚠ anomaly, ✗ error)* | sample-ecommerce | `packages/sample-app/src/services/OrderService.ts:40` | 109.7ms | 181.8ms | 14 |
-| OrderService.getOrderSummary | sample-ecommerce | `packages/sample-app/src/services/OrderService.ts:119` | 57.8ms | 66.2ms | 12 |
-| OrderService.processOrder | sample-ecommerce | `packages/sample-app/src/services/OrderService.ts:77` | 255.1ms | 341.8ms | 12 |
-| PaymentService.charge | sample-ecommerce | `packages/sample-app/src/services/PaymentService.ts:29` | 34.3ms | 48.8ms | 10 |
-| PaymentService.refund | sample-ecommerce | `packages/sample-app/src/services/PaymentService.ts:54` | 48.9ms | 48.9ms | 1 |
-| PaymentService.validateCard | sample-ecommerce | `packages/sample-app/src/services/PaymentService.ts:19` | 37.5ms | 50.6ms | 12 |
-| UserService.authenticate *(⚠ anomaly)* | sample-ecommerce | `packages/sample-app/src/services/UserService.ts:42` | 94.7ms | 109.6ms | 5 |
-| UserService.getUser | sample-ecommerce | `packages/sample-app/src/services/UserService.ts:24` | 17.4ms | 49.8ms | 19 |
-| UserService.getUserPreferences | sample-ecommerce | `packages/sample-app/src/services/UserService.ts:61` | 34.0ms | 66.0ms | 7 |
+| Function                                       | Description                                                                              | Agent            | File                                                         |     Avg |     P95 | Calls |
+| :--------------------------------------------- | :--------------------------------------------------------------------------------------- | :--------------- | :----------------------------------------------------------- | ------: | ------: | ----: |
+| AuditService.getRecentActivity                 | Returns the most recent audit entries for a user, up to the given limit                  | sample-ecommerce | `packages/sample-app/src/services/AuditService.ts:31`        |  35.9ms |  47.2ms |     6 |
+| AuditService.log                               | Appends an immutable audit entry for a user action with optional metadata                | sample-ecommerce | `packages/sample-app/src/services/AuditService.ts:15`        |  56.2ms |  63.4ms |    49 |
+| CacheService.get _(⚠ anomaly)_                 | Reads a value from the in-memory cache by key, returns null on miss                      | sample-ecommerce | `packages/sample-app/src/services/CacheService.ts:15`        |  13.5ms |  15.8ms |    75 |
+| CacheService.invalidate                        | Removes all cache entries whose key contains the given pattern                           | sample-ecommerce | `packages/sample-app/src/services/CacheService.ts:33`        |  12.1ms |  15.9ms |     9 |
+| CacheService.set                               | Writes a key-value pair to the cache with an optional TTL                                | sample-ecommerce | `packages/sample-app/src/services/CacheService.ts:24`        |  11.5ms |  15.9ms |    33 |
+| DatabaseService.execute                        | Executes an insert or update operation and persists the payload to the table             | sample-ecommerce | `packages/sample-app/src/services/DatabaseService.ts:59`     |  41.7ms |  48.0ms |    89 |
+| DatabaseService.findById                       | Performs a primary-key lookup on the given table                                         | sample-ecommerce | `packages/sample-app/src/services/DatabaseService.ts:36`     |  26.8ms |  31.9ms |    38 |
+| DatabaseService.query                          | Runs a full table scan with an equality filter on the given table                        | sample-ecommerce | `packages/sample-app/src/services/DatabaseService.ts:46`     |  35.8ms |  47.0ms |    23 |
+| handleCheckout _(⚠ anomaly, ✗ error)_          | Orchestrates the full checkout flow: build order, process payment, and send confirmation | sample-ecommerce | `packages/sample-app/src/index.ts:78`                        | 439.2ms | 607.9ms |    12 |
+| handleLogin                                    | Authenticates a user by email and loads their preferences on success                     | sample-ecommerce | `packages/sample-app/src/index.ts:95`                        | 123.8ms | 170.6ms |     6 |
+| handleProductSearch                            | Fetches product details and stock levels for a list of product IDs in parallel           | sample-ecommerce | `packages/sample-app/src/index.ts:120`                       |  54.0ms |  77.8ms |     2 |
+| handleProfileLoad                              | Loads a user's full profile: account data, preferences, and recent audit activity        | sample-ecommerce | `packages/sample-app/src/index.ts:109`                       |  82.6ms | 140.0ms |     6 |
+| handleRefund                                   | Processes a payment refund and notifies the user with a security alert                   | sample-ecommerce | `packages/sample-app/src/index.ts:136`                       | 192.9ms | 200.9ms |     4 |
+| InventoryService.checkStock                    | Returns the available stock quantity for a product, always reading from the database     | sample-ecommerce | `packages/sample-app/src/services/InventoryService.ts:22`    |  17.8ms |  60.7ms |    18 |
+| InventoryService.getProduct                    | Fetches product details by ID, using the cache to reduce database reads                  | sample-ecommerce | `packages/sample-app/src/services/InventoryService.ts:39`    |  33.4ms |  62.0ms |    18 |
+| InventoryService.reserveStock                  | Decrements available stock for a product and invalidates the cache entry                 | sample-ecommerce | `packages/sample-app/src/services/InventoryService.ts:54`    |  83.0ms |  94.5ms |     9 |
+| NotificationService.sendEmail                  | Sends a transactional email to the user via the SMTP gateway                             | sample-ecommerce | `packages/sample-app/src/services/NotificationService.ts:16` |  77.1ms |  94.5ms |    16 |
+| NotificationService.sendPush                   | Delivers a push notification to the user's registered devices via the push gateway       | sample-ecommerce | `packages/sample-app/src/services/NotificationService.ts:26` |  68.7ms |  79.3ms |     8 |
+| NotificationService.sendSms                    | Sends an SMS message to the user via the SMS provider                                    | sample-ecommerce | `packages/sample-app/src/services/NotificationService.ts:40` |  85.1ms |  93.2ms |     4 |
+| OrderService.buildOrder _(⚠ anomaly, ✗ error)_ | Validates cart items against inventory and assembles a pending order record              | sample-ecommerce | `packages/sample-app/src/services/OrderService.ts:40`        | 112.6ms | 171.0ms |    12 |
+| OrderService.getOrderSummary                   | Returns a human-readable summary for a completed order, cached for 60 seconds            | sample-ecommerce | `packages/sample-app/src/services/OrderService.ts:119`       |  56.6ms |  62.9ms |    11 |
+| OrderService.processOrder                      | Validates the payment card, reserves stock for all items, and charges the customer       | sample-ecommerce | `packages/sample-app/src/services/OrderService.ts:77`        | 218.9ms | 342.1ms |    11 |
+| PaymentService.charge                          | Captures a payment against an order and records the transaction in the database          | sample-ecommerce | `packages/sample-app/src/services/PaymentService.ts:29`      |  39.4ms |  62.3ms |     8 |
+| PaymentService.refund                          | Issues a full or partial refund against a previously captured transaction                | sample-ecommerce | `packages/sample-app/src/services/PaymentService.ts:54`      |  44.9ms |  45.7ms |     4 |
+| PaymentService.validateCard                    | Checks whether a card token is accepted before attempting a charge                       | sample-ecommerce | `packages/sample-app/src/services/PaymentService.ts:19`      |  35.3ms |  47.2ms |    11 |
+| UserService.authenticate _(⚠ anomaly)_         | Validates user credentials and writes the resolved user to cache on success              | sample-ecommerce | `packages/sample-app/src/services/UserService.ts:42`         | 105.1ms | 123.3ms |     6 |
+| UserService.getUser                            | Fetches a user by ID, checking the cache first and falling back to the database          | sample-ecommerce | `packages/sample-app/src/services/UserService.ts:24`         |  18.0ms |  46.5ms |    18 |
+| UserService.getUserPreferences                 | Returns UI and notification preferences based on the user's subscription tier            | sample-ecommerce | `packages/sample-app/src/services/UserService.ts:61`         |  27.9ms |  62.4ms |    10 |
 
 ## Anomalies
 
 > Ghost Doc detected return-type changes for the following functions.
 
-| Function | Agent | File |
-| :--- | :--- | :--- |
-| UserService.authenticate | sample-ecommerce | `packages/sample-app/src/services/UserService.ts:42` |
-| CacheService.get | sample-ecommerce | `packages/sample-app/src/services/CacheService.ts:15` |
-| handleCheckout | sample-ecommerce | `packages/sample-app/src/index.ts:78` |
-| OrderService.buildOrder | sample-ecommerce | `packages/sample-app/src/services/OrderService.ts:40` |
+| Function                 | Agent            | File                                                  |
+| :----------------------- | :--------------- | :---------------------------------------------------- |
+| UserService.authenticate | sample-ecommerce | `packages/sample-app/src/services/UserService.ts:42`  |
+| handleCheckout           | sample-ecommerce | `packages/sample-app/src/index.ts:78`                 |
+| OrderService.buildOrder  | sample-ecommerce | `packages/sample-app/src/services/OrderService.ts:40` |
+| CacheService.get         | sample-ecommerce | `packages/sample-app/src/services/CacheService.ts:15` |
 
 ## Error Details
 
-> 4 errors captured. Showing the 4 most recent.
+> 2 errors captured. Showing the 2 most recent.
 
 ### `handleCheckout` — Error
 
 - **Location:** `packages/sample-app/src/index.ts:78`
 - **Agent:** sample-ecommerce
-- **Duration:** 30.7ms
+- **Duration:** 78.4ms
 - **Message:** Insufficient stock for "USB-C Hub" (requested: 1, available: 0)
 
 ```
@@ -564,39 +540,7 @@ Error: Insufficient stock for "USB-C Hub" (requested: 1, available: 0)
 
 - **Location:** `packages/sample-app/src/services/OrderService.ts:40`
 - **Agent:** sample-ecommerce
-- **Duration:** 30.6ms
-- **Message:** Insufficient stock for "USB-C Hub" (requested: 1, available: 0)
-
-```
-Error: Insufficient stock for "USB-C Hub" (requested: 1, available: 0)
-    at <anonymous> (D:\Ghost_Doc\packages\sample-app\src\services\OrderService.ts:51:21)
-    at async Promise.all (index 0)
-    at async <anonymous> (D:\Ghost_Doc\packages\sample-app\src\services\OrderService.ts:46:27)
-    at async OrderService.place (D:\Ghost_Doc\packages\sample-app\src\services\OrderService.ts:136:19)
-    at async <anonymous> (D:\Ghost_Doc\packages\sample-app\src\index.ts:81:19)
-```
-
-### `handleCheckout` — Error
-
-- **Location:** `packages/sample-app/src/index.ts:78`
-- **Agent:** sample-ecommerce
-- **Duration:** 79.5ms
-- **Message:** Insufficient stock for "USB-C Hub" (requested: 1, available: 0)
-
-```
-Error: Insufficient stock for "USB-C Hub" (requested: 1, available: 0)
-    at <anonymous> (D:\Ghost_Doc\packages\sample-app\src\services\OrderService.ts:51:21)
-    at async Promise.all (index 0)
-    at async <anonymous> (D:\Ghost_Doc\packages\sample-app\src\services\OrderService.ts:46:27)
-    at async OrderService.place (D:\Ghost_Doc\packages\sample-app\src\services\OrderService.ts:136:19)
-    at async <anonymous> (D:\Ghost_Doc\packages\sample-app\src\index.ts:81:19)
-```
-
-### `OrderService.buildOrder` — Error
-
-- **Location:** `packages/sample-app/src/services/OrderService.ts:40`
-- **Agent:** sample-ecommerce
-- **Duration:** 79.4ms
+- **Duration:** 78.3ms
 - **Message:** Insufficient stock for "USB-C Hub" (requested: 1, available: 0)
 
 ```
@@ -610,4 +554,4 @@ Error: Insufficient stock for "USB-C Hub" (requested: 1, available: 0)
 
 ---
 
-*Generated by [Ghost Doc](https://github.com/ghost-doc/ghost-doc)*
+_Generated by [Ghost Doc](https://github.com/ghost-doc/ghost-doc)_

@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { useDashboardStore, selectAgentIds } from "../../store/index.js";
-import type { StoredSpan } from "../../store/types.js";
+import type { StoredSpan, FilterState } from "../../store/types.js";
 import type { ViewMode } from "../../store/types.js";
 
 /**
@@ -23,6 +23,8 @@ export function Header(): JSX.Element {
   const viewMode = store.viewMode;
   const nodeSearch = store.nodeSearch;
   const compareActive = store.compareSpans !== null;
+  const nodeFilter = filter.nodeFilter;
+  const criticalPathActive = store.criticalPath !== null;
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -57,8 +59,9 @@ export function Header(): JSX.Element {
   return (
     <header className="flex items-center gap-3 px-4 py-2 bg-panel border-b border-border flex-shrink-0">
       {/* Logo */}
-      <span className="font-bold text-white tracking-tight mr-2">
-        👻 <span className="text-accent">Ghost</span>Doc
+      <img src="/logo.png" alt="Ghost Doc" className="h-7 w-7 rounded object-cover flex-shrink-0" />
+      <span className="font-bold text-white tracking-tight mr-1">
+        <span className="text-accent">Ghost</span>Doc
       </span>
 
       {/* Connection status */}
@@ -90,6 +93,24 @@ export function Header(): JSX.Element {
         {rate}
         <span className="text-gray-600">/s</span>
       </span>
+
+      {/* Node filter toggles */}
+      <NodeFilterToggles value={nodeFilter} onChange={(v) => store.setFilter({ nodeFilter: v })} />
+
+      {/* Critical path button — flowchart only */}
+      {viewMode === "flowchart" && (
+        <button
+          onClick={() => store.toggleCriticalPath()}
+          className={`text-xs px-2 py-0.5 rounded border transition-colors ${
+            criticalPathActive
+              ? "bg-purple-900/50 text-purple-300 border-purple-700"
+              : "bg-canvas border-border text-gray-600 hover:text-gray-400 hover:border-gray-500"
+          }`}
+          title="Highlight the highest-latency path through the call graph"
+        >
+          Critical Path
+        </button>
+      )}
 
       {/* Spacer */}
       <div className="flex-1" />
@@ -188,6 +209,51 @@ export function Header(): JSX.Element {
         ⌨
       </span>
     </header>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Node filter toggles — Errors / Anomalies / Slow
+// ---------------------------------------------------------------------------
+
+const NODE_FILTERS: { value: FilterState["nodeFilter"]; label: string; activeClass: string }[] = [
+  { value: "errors", label: "Errors", activeClass: "bg-red-900/50 text-red-400 border-red-800" },
+  {
+    value: "anomalies",
+    label: "Anomalies",
+    activeClass: "bg-orange-900/50 text-orange-400 border-orange-800",
+  },
+  {
+    value: "slow",
+    label: "Slow",
+    activeClass: "bg-yellow-900/40 text-yellow-500 border-yellow-800",
+  },
+];
+
+function NodeFilterToggles({
+  value,
+  onChange,
+}: {
+  value: FilterState["nodeFilter"];
+  onChange: (v: FilterState["nodeFilter"]) => void;
+}): JSX.Element {
+  return (
+    <div className="flex gap-1">
+      {NODE_FILTERS.map(({ value: v, label, activeClass }) => (
+        <button
+          key={v}
+          onClick={() => onChange(value === v ? "all" : v)}
+          className={`text-xs px-2 py-0.5 rounded border transition-colors ${
+            value === v
+              ? activeClass
+              : "bg-canvas border-border text-gray-600 hover:text-gray-400 hover:border-gray-500"
+          }`}
+          title={`Show only ${label.toLowerCase()} nodes`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
   );
 }
 

@@ -1,0 +1,92 @@
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+    id 'signing'
+    id 'com.gradleup.nmcp' version '0.0.9'
+}
+
+// Change to your verified namespace, e.g. 'io.github.jeffev'
+group = 'io.github.jeffev'
+version = '0.1.0'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+    withSourcesJar()
+    withJavadocJar()
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // WebSocket client (lightweight, no transitive deps)
+    implementation 'org.java-websocket:Java-WebSocket:1.5.4'
+
+    // JSON serialization
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.17.2'
+
+    // Spring AOP (optional — only needed when using @Trace with Spring beans)
+    compileOnly 'org.springframework:spring-context:6.1.14'
+    compileOnly 'org.aspectj:aspectjrt:1.9.22'
+    compileOnly 'org.aspectj:aspectjweaver:1.9.22'
+
+    // Test
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.11.3'
+    testImplementation 'org.mockito:mockito-core:5.14.2'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+test {
+    useJUnitPlatform()
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+            pom {
+                name = 'Ghost Doc Agent Java'
+                description = 'Java / Spring Boot tracing agent for Ghost Doc'
+                url = 'https://github.com/jeffev/ghost-doc'
+                licenses {
+                    license {
+                        name = 'MIT License'
+                        url = 'https://opensource.org/licenses/MIT'
+                    }
+                }
+                developers {
+                    developer {
+                        id = 'jeffev'
+                        name = 'Jefferson Valandro'
+                        url = 'https://github.com/jeffev'
+                    }
+                }
+                scm {
+                    connection = 'scm:git:git://github.com/jeffev/ghost-doc.git'
+                    developerConnection = 'scm:git:ssh://github.com:jeffev/ghost-doc.git'
+                    url = 'https://github.com/jeffev/ghost-doc'
+                }
+            }
+        }
+    }
+}
+
+signing {
+    def signingKey = findProperty('signingKey')
+    def signingPassword = findProperty('signingPassword')
+    if (signingKey) {
+        useInMemoryPgpKeys(signingKey, signingPassword)
+    }
+    sign publishing.publications.mavenJava
+}
+
+nmcp {
+    publish('mavenJava') {
+        username = findProperty('mavenCentralUsername') ?: ''
+        password = findProperty('mavenCentralPassword') ?: ''
+        // AUTOMATIC publishes immediately; USER_MANAGED lets you review first on the portal
+        publicationType = 'AUTOMATIC'
+    }
+}

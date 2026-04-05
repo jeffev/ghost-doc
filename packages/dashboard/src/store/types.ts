@@ -116,4 +116,9 @@ export interface FilterState {
    * "file" = one node per source file, aggregating all functions within it.
    */
   groupBy: "none" | "agent" | "file";
+  /**
+   * Post-graph filter: show only nodes matching this condition.
+   * "all" = no filtering (default).
+   */
+  nodeFilter: "all" | "errors" | "anomalies" | "slow";
 }

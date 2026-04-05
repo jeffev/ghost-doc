@@ -219,8 +219,7 @@ export class GhostDocHub {
   private onAgentConnect(ws: WebSocket): void {
     this.agentRateWindows.set(ws, []);
     ws.on("message", (raw) => {
-      if (!this.checkRateLimit(ws)) return; // drop span silently
-      this.handleAgentMessage(raw.toString());
+      this.handleAgentMessage(ws, raw.toString());
     });
     ws.on("error", (err) => {
       // Errors are logged at warn level; they don't crash the Hub.
@@ -256,7 +255,7 @@ export class GhostDocHub {
     return true;
   }
 
-  private handleAgentMessage(raw: string): void {
+  private handleAgentMessage(ws: WebSocket, raw: string): void {
     let parsed: unknown;
     try {
       parsed = JSON.parse(raw);
@@ -265,6 +264,16 @@ export class GhostDocHub {
       return;
     }
 
+    // Support both single events and batched arrays (agent batching mode).
+    const events: unknown[] = Array.isArray(parsed) ? parsed : [parsed];
+
+    for (const event of events) {
+      if (!this.checkRateLimit(ws)) continue; // rate exceeded — drop span
+      this.processTraceEvent(event);
+    }
+  }
+
+  private processTraceEvent(parsed: unknown): void {
     const result = TraceEventSchema.safeParse(parsed);
     if (!result.success) {
       console.warn("[hub] discarded invalid trace:", result.error.flatten().fieldErrors);

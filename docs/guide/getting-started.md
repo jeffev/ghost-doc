@@ -6,6 +6,7 @@ Ghost Doc instruments your functions at runtime and generates a live visual call
 
 - **Node.js** 20+ and **npm** / **pnpm** (for the Hub and JS agent)
 - **Python** 3.10+ (for the Python agent, optional)
+- **Java 17+** / Gradle or Maven (for the Java agent, optional)
 
 ## Step 1 — Install the Hub
 
@@ -33,6 +34,7 @@ Choose the agent for your language:
 
 - **[JavaScript / TypeScript →](./agent-js)**
 - **[Python →](./agent-python)**
+- **[Java / Spring Boot →](./agent-java)**
 
 ## Step 4 — Generate documentation
 
@@ -80,8 +82,38 @@ def get_user(user_id: int) -> dict:
 
 The first line of the docstring is automatically used as the node description in the dashboard.
 
+## Quick example (Java / Spring Boot)
+
+```java
+import io.ghostdoc.agent.spring.EnableGhostDoc;
+import io.ghostdoc.agent.annotation.Trace;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.EnableAspectJAutoProxy;
+import org.springframework.stereotype.Service;
+
+@Configuration
+@EnableAspectJAutoProxy
+@EnableGhostDoc(agentId = "my-service")
+public class AppConfig { }
+
+@Service
+public class OrderService {
+    @Trace("order.place")
+    public Order placeOrder(String userId, List<Item> items) {
+        // Ghost Doc captures args, return value, duration, and errors automatically
+        return processOrder(userId, items);
+    }
+}
+```
+
+Add to `build.gradle`:
+
+```groovy
+implementation 'io.github.jeffev:agent-java:0.1.0'
+```
+
 ## Next steps
 
-- Learn all decorator options → [Agent JS](./agent-js) / [Agent Python](./agent-python)
+- Learn all decorator options → [Agent JS](./agent-js) / [Agent Python](./agent-python) / [Agent Java](./agent-java)
 - Configure the Hub port, sanitization, and flush interval → [Hub & CLI](./hub)
 - Export to Notion, Obsidian, or Confluence → [Exporter](./exporter)

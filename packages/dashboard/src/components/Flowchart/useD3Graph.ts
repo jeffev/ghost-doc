@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback, type RefObject } from "react";
 import * as d3 from "d3";
 import type { GraphData, GraphNode, GraphEdge, GraphDiff } from "../../store/types.js";
+import type { CriticalPath } from "../../store/graph.js";
 import { agentColor } from "../../colors.js";
 
 // ---------------------------------------------------------------------------
@@ -26,6 +27,10 @@ export interface UseD3GraphOptions {
   onNodeHover: (node: GraphNode | null) => void;
   /** Called (throttled ~10 fps) with current node positions and zoom transform. */
   onMinimapUpdate: (update: MinimapUpdate) => void;
+  /** Called on right-click (contextmenu) on a node. Screen coordinates. */
+  onNodeContextMenu: (node: GraphNode, screenX: number, screenY: number) => void;
+  /** When set, highlights the critical path nodes and edges in violet. */
+  criticalPath: CriticalPath | null;
 }
 
 export interface UseD3GraphResult {
@@ -40,7 +45,14 @@ export interface UseD3GraphResult {
 // Color helpers
 // ---------------------------------------------------------------------------
 
-function nodeFill(node: GraphNode, diff: GraphDiff | null): string {
+const CRITICAL_COLOR = "#a855f7"; // violet-500
+
+function nodeFill(
+  node: GraphNode,
+  diff: GraphDiff | null,
+  criticalPath: CriticalPath | null,
+): string {
+  if (criticalPath !== null && criticalPath.nodeIds.has(node.id)) return "#3b0764"; // violet-950
   if (diff !== null) {
     const status = diff.nodeStatus.get(node.id);
     if (status === "added") return "#14532d";
@@ -55,8 +67,10 @@ function nodeRingStroke(
   node: GraphNode,
   selectedNodeId: string | null,
   diff: GraphDiff | null,
+  criticalPath: CriticalPath | null,
 ): string {
   if (node.id === selectedNodeId) return "#ffffff";
+  if (criticalPath !== null && criticalPath.nodeIds.has(node.id)) return CRITICAL_COLOR;
   if (diff !== null) {
     const status = diff.nodeStatus.get(node.id);
     if (status === "added") return "#22c55e";
@@ -67,6 +81,22 @@ function nodeRingStroke(
   if (node.hasAnomaly) return "#ef4444";
   if (node.isSlow) return "#f97316";
   return "transparent";
+}
+
+function edgeStroke(
+  edge: GraphEdge,
+  selectedNodeId: string | null,
+  criticalPath: CriticalPath | null,
+): string {
+  const src =
+    typeof edge.source === "string" ? edge.source : (edge.source as unknown as GraphNode).id;
+  const tgt =
+    typeof edge.target === "string" ? edge.target : (edge.target as unknown as GraphNode).id;
+  if (criticalPath !== null && criticalPath.edgeIds.has(edge.id)) return CRITICAL_COLOR;
+  if (selectedNodeId === null) return "#4b5563";
+  if (tgt === selectedNodeId) return "#3b82f6"; // incoming → blue
+  if (src === selectedNodeId) return "#22c55e"; // outgoing → green
+  return "#1f2937"; // dimmed
 }
 
 function nodeOpacity(node: GraphNode, nodeSearch: string): number {
@@ -95,6 +125,8 @@ export function useD3Graph({
   diff,
   onNodeHover,
   onMinimapUpdate,
+  onNodeContextMenu,
+  criticalPath,
 }: UseD3GraphOptions): UseD3GraphResult {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const simRef = useRef<d3.Simulation<GraphNode, GraphEdge> | null>(null);
@@ -107,9 +139,11 @@ export function useD3Graph({
   const onNodeClickRef = useRef(onNodeClick);
   const onNodeHoverRef = useRef(onNodeHover);
   const onMinimapUpdateRef = useRef(onMinimapUpdate);
+  const onNodeContextMenuRef = useRef(onNodeContextMenu);
   onNodeClickRef.current = onNodeClick;
   onNodeHoverRef.current = onNodeHover;
   onMinimapUpdateRef.current = onMinimapUpdate;
+  onNodeContextMenuRef.current = onNodeContextMenu;
 
   // ── Stable pan function (reads from refs) ──────────────────────────────────
   const panToGraphPoint = useCallback((gx: number, gy: number) => {
@@ -247,6 +281,9 @@ export function useD3Graph({
 
     const edges: GraphEdge[] = data.edges.map((e) => ({ ...e }));
 
+    const maxEdgeCount = Math.max(1, ...edges.map((e) => e.callCount));
+    const edgeStrokeWidth = (callCount: number): number => 1 + (callCount / maxEdgeCount) * 4;
+
     const sim = d3
       .forceSimulation<GraphNode>(nodes)
       .force(
@@ -271,8 +308,8 @@ export function useD3Graph({
         (enter) => {
           const eg = enter.append("g").attr("class", "edge");
           eg.append("line")
-            .attr("stroke", "#4b5563")
-            .attr("stroke-width", 1.5)
+            .attr("stroke", (d) => edgeStroke(d, selectedNodeId, criticalPath))
+            .attr("stroke-width", (d) => edgeStrokeWidth(d.callCount))
             .attr("marker-end", "url(#arrowhead)");
           eg.append("text")
             .attr("fill", "#6b7280")
@@ -283,6 +320,12 @@ export function useD3Graph({
         (update) => update,
         (exit) => exit.remove(),
       );
+
+    // Update stroke-width and color on all edges (including existing ones).
+    edgeSel
+      .select<SVGLineElement>("line")
+      .attr("stroke", (d) => edgeStroke(d, selectedNodeId, criticalPath))
+      .attr("stroke-width", (d) => edgeStrokeWidth(d.callCount));
 
     // ── Nodes ─────────────────────────────────────────────────────────────────
     const nodeSel = nodesG
@@ -314,7 +357,11 @@ export function useD3Graph({
             )
             .on("click", (_event, d) => onNodeClickRef.current(d.id))
             .on("mouseenter", (_event, d) => onNodeHoverRef.current(d))
-            .on("mouseleave", () => onNodeHoverRef.current(null));
+            .on("mouseleave", () => onNodeHoverRef.current(null))
+            .on("contextmenu", (event: MouseEvent, d) => {
+              event.preventDefault();
+              onNodeContextMenuRef.current(d, event.clientX, event.clientY);
+            });
 
           ng.append("circle").attr("r", 28).attr("stroke-width", 2);
 
@@ -351,12 +398,12 @@ export function useD3Graph({
     // Apply per-node visual attributes.
     nodeSel
       .select<SVGCircleElement>("circle:first-of-type")
-      .attr("fill", (d) => nodeFill(d, diff))
+      .attr("fill", (d) => nodeFill(d, diff, criticalPath))
       .attr("stroke", (d) => agentColor(d.agentId));
 
     nodeSel
       .select<SVGCircleElement>("circle.ring")
-      .attr("stroke", (d) => nodeRingStroke(d, selectedNodeId, diff))
+      .attr("stroke", (d) => nodeRingStroke(d, selectedNodeId, diff, criticalPath))
       .attr("stroke-dasharray", (d) => ringDashArray(d, diff));
 
     nodeSel.select<SVGTextElement>("text.label").text((d) => truncate(d.functionName, 12));
@@ -399,13 +446,20 @@ export function useD3Graph({
     };
   }, [data, width, height]);
 
-  // ── Selection ring update (no simulation rebuild) ──────────────────────────
+  // ── Selection ring + edge color update (no simulation rebuild) ────────────
   useEffect(() => {
     if (!initialized.current || svgRef.current === null) return;
-    d3.select(svgRef.current)
+    const root = d3.select(svgRef.current);
+
+    root
       .selectAll<SVGCircleElement, GraphNode>("circle.ring")
-      .attr("stroke", (d) => nodeRingStroke(d, selectedNodeId, diff));
-  }, [selectedNodeId]);
+      .attr("stroke", (d) => nodeRingStroke(d, selectedNodeId, diff, criticalPath));
+
+    root
+      .selectAll<SVGGElement, GraphEdge>("g.edge")
+      .select<SVGLineElement>("line")
+      .attr("stroke", (d) => edgeStroke(d, selectedNodeId, criticalPath));
+  }, [selectedNodeId, criticalPath]);
 
   // ── Diff color update ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -413,12 +467,12 @@ export function useD3Graph({
     const root = d3.select(svgRef.current);
     root
       .selectAll<SVGCircleElement, GraphNode>("circle:first-of-type")
-      .attr("fill", (d) => nodeFill(d, diff));
+      .attr("fill", (d) => nodeFill(d, diff, criticalPath));
     root
       .selectAll<SVGCircleElement, GraphNode>("circle.ring")
-      .attr("stroke", (d) => nodeRingStroke(d, selectedNodeId, diff))
+      .attr("stroke", (d) => nodeRingStroke(d, selectedNodeId, diff, criticalPath))
       .attr("stroke-dasharray", (d) => ringDashArray(d, diff));
-  }, [diff]);
+  }, [diff, criticalPath]);
 
   // ── Search highlight + auto-pan ────────────────────────────────────────────
   useEffect(() => {

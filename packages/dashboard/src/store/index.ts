@@ -12,9 +12,11 @@ import type {
 import {
   buildGraphData,
   computeGraphDiff,
+  computeCriticalPath,
   applySpanIncremental,
   emptyAccumulators,
   type GraphAccumulators,
+  type CriticalPath,
 } from "./graph.js";
 
 // ---------------------------------------------------------------------------
@@ -97,6 +99,12 @@ export interface DashboardStore {
   loadCompareSnapshot: (spans: StoredSpan[]) => void;
   /** Clear the comparison snapshot. */
   clearCompare: () => void;
+
+  // ── Critical path ──────────────────────────────────────────────────────────
+  /** Result of the critical-path computation, or null when hidden. */
+  criticalPath: CriticalPath | null;
+  /** Toggle critical-path highlight on/off (recomputes on the current graph). */
+  toggleCriticalPath: () => void;
 
   // ── Trace rate ─────────────────────────────────────────────────────────────
   /** Timestamps of spans received in the last 5 s (for rate calculation). */
@@ -257,6 +265,7 @@ export const useDashboardStore = create<InternalStore>((set, get) => ({
     functionName: "",
     tag: "",
     groupBy: "none",
+    nodeFilter: "all",
   },
 
   setFilter(partial) {
@@ -316,6 +325,15 @@ export const useDashboardStore = create<InternalStore>((set, get) => ({
 
   clearCompare() {
     set({ compareSpans: null, compareGraph: null, graphDiff: null });
+  },
+
+  // ── Critical path ──────────────────────────────────────────────────────────
+  criticalPath: null,
+
+  toggleCriticalPath() {
+    set((state) => ({
+      criticalPath: state.criticalPath !== null ? null : computeCriticalPath(state.graph),
+    }));
   },
 
   // ── Trace rate ─────────────────────────────────────────────────────────────
@@ -431,7 +449,25 @@ function buildVisibleGraph(
     );
   }
 
-  return buildGraphData(visible, filter.groupBy);
+  const graph = buildGraphData(visible, filter.groupBy);
+
+  if (filter.nodeFilter === "all") return graph;
+
+  const kept = new Set(
+    graph.nodes
+      .filter((n) => {
+        if (filter.nodeFilter === "errors") return n.hasError;
+        if (filter.nodeFilter === "anomalies") return n.hasAnomaly;
+        if (filter.nodeFilter === "slow") return n.isSlow;
+        return true;
+      })
+      .map((n) => n.id),
+  );
+
+  return {
+    nodes: graph.nodes.filter((n) => kept.has(n.id)),
+    edges: graph.edges.filter((e) => kept.has(e.source) && kept.has(e.target)),
+  };
 }
 
 function pruneRateWindow(window: number[]): number[] {

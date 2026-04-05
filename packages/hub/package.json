@@ -33,7 +33,7 @@
   ],
   "scripts": {
     "build": "tsup src/index.ts src/cli.ts --format esm --dts --clean --shims",
-    "copy-dashboard": "node -e \"const fs=require('fs'),path=require('path');const src=path.resolve(process.cwd(),'../dashboard/dist');const dest=path.resolve(process.cwd(),'public');if(fs.existsSync(src)){fs.rmSync(dest,{recursive:true,force:true});fs.cpSync(src,dest,{recursive:true});console.log('[ghost-doc] dashboard copied to hub/public');}else{console.log('[ghost-doc] dashboard/dist not found — run dashboard build first');}\"",
+    "copy-dashboard": "node -e \"const fs=require('fs'),path=require('path');const src=path.resolve(process.cwd(),'../dashboard/dist');const dest=path.resolve(process.cwd(),'public');if(fs.existsSync(src)){fs.rmSync(dest,{recursive:true,force:true});fs.cpSync(src,dest,{recursive:true});const logoSrc=path.resolve(process.cwd(),'../../logo.png');if(fs.existsSync(logoSrc))fs.copyFileSync(logoSrc,path.join(dest,'logo.png'));const idx=path.join(dest,'index.html');if(fs.existsSync(idx)){let h=fs.readFileSync(idx,'utf8');h=h.replace(/<link rel=\\\"icon\\\"[^>]*>/,'<link rel=\\\"icon\\\" type=\\\"image/png\\\" href=\\\"/logo.png\\\" />');fs.writeFileSync(idx,h);}console.log('[ghost-doc] dashboard copied to hub/public');}else{console.log('[ghost-doc] dashboard/dist not found — run dashboard build first');}\"",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",

@@ -99,8 +99,15 @@ export function applySpanIncremental(
   // ── Build updated node list ───────────────────────────────────────────────
   let nodes: GraphNode[];
   if (isNewNode) {
-    // New node: add it and recompute isSlow for all nodes (threshold changed)
-    nodes = [...nodeMap.values()].map((n) => accToNode(n, globalP95));
+    // New node: append it to the existing list and recompute isSlow for all.
+    // We must NOT replace prevGraph.nodes with nodeMap.values() because the
+    // accumulator is reset on clearSpans/setFilter while prevGraph may still
+    // have nodes from a prior full rebuild — replacing would remove those nodes
+    // and leave dangling edge references that crash D3's link force.
+    nodes = [
+      ...prevGraph.nodes.map((n) => ({ ...n, isSlow: n.avgDurationMs >= globalP95 })),
+      accToNode(nodeAcc, globalP95),
+    ];
   } else {
     // Existing node: patch only the updated node in place
     nodes = prevGraph.nodes.map((n) =>
@@ -415,6 +422,134 @@ interface EdgeAccumulator {
   target: string;
   callCount: number;
   durations: number[];
+}
+
+// ---------------------------------------------------------------------------
+// Critical path
+// ---------------------------------------------------------------------------
+
+export interface CriticalPath {
+  /** Node IDs on the critical (highest cumulative latency) path. */
+  nodeIds: Set<string>;
+  /** Edge IDs on the critical path. */
+  edgeIds: Set<string>;
+  /** Total cumulative avgDurationMs along the path. */
+  totalMs: number;
+}
+
+/**
+ * Finds the critical path — the directed path through the call graph with the
+ * highest cumulative average duration.
+ *
+ * Uses Kahn's topological sort + DP in reverse-topo order:
+ *   dist[node] = node.avgDurationMs + max(dist[child])
+ *
+ * When the graph contains cycles (rare in practice) the remaining nodes are
+ * appended after the topo sort so the algorithm still terminates.
+ */
+export function computeCriticalPath(graph: GraphData): CriticalPath {
+  const empty: CriticalPath = { nodeIds: new Set(), edgeIds: new Set(), totalMs: 0 };
+  if (graph.nodes.length === 0) return empty;
+
+  // Normalize edge endpoints — after D3 link force they become node objects.
+  const edges = graph.edges.map((e) => ({
+    id: e.id,
+    source: typeof e.source === "string" ? e.source : (e.source as unknown as GraphNode).id,
+    target: typeof e.target === "string" ? e.target : (e.target as unknown as GraphNode).id,
+    avgDurationMs: e.avgDurationMs,
+  }));
+
+  // Build adjacency structures.
+  const outEdges = new Map<string, typeof edges>();
+  const inDegree = new Map<string, number>();
+  for (const node of graph.nodes) {
+    outEdges.set(node.id, []);
+    inDegree.set(node.id, 0);
+  }
+  for (const edge of edges) {
+    outEdges.get(edge.source)?.push(edge);
+    inDegree.set(edge.target, (inDegree.get(edge.target) ?? 0) + 1);
+  }
+
+  const nodeById = new Map(graph.nodes.map((n) => [n.id, n]));
+
+  // Kahn's topological sort.
+  const tempDeg = new Map(inDegree);
+  const queue: string[] = [];
+  for (const [id, deg] of tempDeg) {
+    if (deg === 0) queue.push(id);
+  }
+  const topoOrder: string[] = [];
+  while (queue.length > 0) {
+    const id = queue.shift()!;
+    topoOrder.push(id);
+    for (const e of outEdges.get(id) ?? []) {
+      const d = (tempDeg.get(e.target) ?? 0) - 1;
+      tempDeg.set(e.target, d);
+      if (d === 0) queue.push(e.target);
+    }
+  }
+  // Append any nodes skipped due to cycles.
+  const inTopo = new Set(topoOrder);
+  for (const n of graph.nodes) {
+    if (!inTopo.has(n.id)) topoOrder.push(n.id);
+  }
+
+  // DP: dist[node] = node.avgDurationMs + max(dist[child])
+  const dist = new Map<string, number>();
+  const nextStep = new Map<string, { nodeId: string; edgeId: string } | null>();
+
+  for (const nodeId of [...topoOrder].reverse()) {
+    const node = nodeById.get(nodeId);
+    if (node === undefined) continue;
+
+    let bestChildDist = 0;
+    let bestNext: { nodeId: string; edgeId: string } | null = null;
+
+    for (const edge of outEdges.get(nodeId) ?? []) {
+      const childDist = dist.get(edge.target) ?? 0;
+      if (childDist > bestChildDist) {
+        bestChildDist = childDist;
+        bestNext = { nodeId: edge.target, edgeId: edge.id };
+      }
+    }
+
+    dist.set(nodeId, node.avgDurationMs + bestChildDist);
+    nextStep.set(nodeId, bestNext);
+  }
+
+  // Pick the root (no incoming edges) with the highest dist.
+  const roots = graph.nodes.filter((n) => (inDegree.get(n.id) ?? 0) === 0);
+  const candidates = roots.length > 0 ? roots : graph.nodes;
+
+  let bestRoot: string | null = null;
+  let bestTotal = 0;
+  for (const node of candidates) {
+    const d = dist.get(node.id) ?? 0;
+    if (d > bestTotal) {
+      bestTotal = d;
+      bestRoot = node.id;
+    }
+  }
+
+  if (bestRoot === null) return empty;
+
+  // Trace the path following nextStep pointers.
+  const nodeIds = new Set<string>();
+  const edgeIds = new Set<string>();
+  let current: string | null = bestRoot;
+  const visited = new Set<string>();
+
+  while (current !== null && !visited.has(current)) {
+    visited.add(current);
+    nodeIds.add(current);
+    const step: { nodeId: string; edgeId: string } | null | undefined = nextStep.get(current);
+    if (step == null) break;
+    edgeIds.add(step.edgeId);
+    current = step.nodeId;
+  }
+
+  return { nodeIds, edgeIds, totalMs: bestTotal };
 }
 
 // ---------------------------------------------------------------------------
