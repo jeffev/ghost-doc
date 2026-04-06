@@ -18,8 +18,10 @@ jobs:
           node-version: "20"
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile
-      - name: Build shared-types (required for typecheck in consuming packages)
-        run: pnpm --filter @ghost-doc/shared-types build
+      - name: Build shared-types and contractum (required for typecheck in consuming packages)
+        run: |
+          pnpm --filter @ghost-doc/shared-types build
+          pnpm --filter @ghost-doc/contractum build
       - run: pnpm lint
       - run: pnpm typecheck
 

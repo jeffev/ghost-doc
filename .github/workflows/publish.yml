@@ -10,7 +10,7 @@ concurrency: ${{ github.workflow }}-${{ github.ref }}
 permissions:
   contents: write
   pull-requests: write
-  id-token: write   # required for --provenance
+  id-token: write # required for --provenance
 
 jobs:
   publish:
@@ -35,6 +35,7 @@ jobs:
       - name: Build all packages
         run: |
           pnpm --filter @ghost-doc/shared-types build
+          pnpm --filter @ghost-doc/contractum build
           pnpm --filter @ghost-doc/agent-js build
           pnpm --filter @ghost-doc/exporter build
           pnpm --filter @ghost-doc/dashboard build
