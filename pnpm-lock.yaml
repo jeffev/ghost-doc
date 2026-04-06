@@ -67,6 +67,22 @@ importers:
         specifier: ^2.0.0
         version: 2.1.9(@types/node@22.19.15)(jsdom@26.1.0)
 
+  packages/contractum:
+    dependencies:
+      '@ghost-doc/shared-types':
+        specifier: workspace:*
+        version: link:../shared-types
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.15
+      tsup:
+        specifier: ^8.5.1
+        version: 8.5.1(jiti@2.6.1)(postcss@8.5.8)(tsx@4.21.0)(typescript@6.0.2)(yaml@2.8.3)
+      vitest:
+        specifier: ^2.0.0
+        version: 2.1.9(@types/node@22.19.15)(jsdom@26.1.0)
+
   packages/dashboard:
     dependencies:
       '@ghost-doc/shared-types':
@@ -161,6 +177,9 @@ importers:
       '@fastify/static':
         specifier: ^8.0.0
         version: 8.3.0
+      '@ghost-doc/contractum':
+        specifier: workspace:*
+        version: link:../contractum
       '@ghost-doc/exporter':
         specifier: workspace:*
         version: link:../exporter

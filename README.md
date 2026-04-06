@@ -44,6 +44,11 @@ User clicks button
 - **Keyboard shortcuts** — `F` fits the graph, `Esc` closes the inspector, `Space` toggles time-travel, and more
 - **One-click export** — download self-contained HTML or Markdown directly from the dashboard header
 - **HTTP middleware** — drop-in Express and Fastify middleware for automatic distributed trace propagation
+- **Contract inference** — automatically derive behavioral contracts (JSON Schema) from recorded calls; re-infer as your API evolves
+- **Contract validation** — validate future calls against frozen contracts and see violations highlighted in the Dashboard
+- **Mock generation** — export any recorded session as ready-to-use Jest, Vitest, or pytest mock files with one command
+- **Mock HTTP server** — replay a recorded session as a live HTTP service for integration tests (`exact`, `round-robin`, or `latency-preserving` modes)
+- **Session diff** — compare two recorded sessions to detect breaking return-shape changes, error-rate shifts, and latency regressions
 - **Language-agnostic** — JavaScript/TypeScript and Python agents today; Go, Rust, Java, C#, and others can implement the open wire format
 - **Export anywhere** — Markdown/Mermaid, self-contained HTML, Notion, Obsidian, or Confluence
 
@@ -439,6 +444,25 @@ Switch to the flame graph using the **Flame** toggle in the header. Select any t
 
 ---
 
+### Contracts tab
+
+Switch to **Contracts** in the header to inspect inferred behavioral contracts.
+
+- **Function list** — every traced function with its sample count and error indicator.
+- **Contract detail** — the JSON Schema for args, return value, and observed error shapes.
+- **Re-infer** — re-derives the schema from all spans currently in the Hub.
+- **Validate spans** — checks Hub spans against the displayed contract and shows a violation feed with `path / rule / expected / received` details.
+
+### Mocks tab
+
+Switch to **Mocks** to manage recorded sessions.
+
+- **Record session** — enter a name and click **Save** to snapshot the Hub's current spans.
+- **Session list** — click any session to view its call table (sequence, function, args, return/error, duration). Delete sessions you no longer need.
+- **Export mocks** — generates and downloads a static Jest, Vitest, or pytest mock file directly in the browser.
+
+---
+
 ### Snapshot comparison
 
 Compare any two states of your application side by side — useful for before/after performance analysis, deployment validation, or spotting regressions.
@@ -514,6 +538,16 @@ ghost-doc export [options]             Export the current trace graph
 ghost-doc snapshot [options]           Save current trace buffer to disk
 ghost-doc share <snapshot-id>          Encode a snapshot as a shareable URL
 ghost-doc load <encoded> [options]     Decode and replay a shared snapshot
+
+ghost-doc contract infer [options]     Infer a JSON Schema contract from recorded calls
+ghost-doc contract validate [options]  Validate Hub spans against a saved contract
+ghost-doc contract export [options]    Infer and save a contract to disk
+
+ghost-doc mock record [options]        Save current Hub spans as a named session
+ghost-doc mock serve [options]         Start an HTTP mock server from a session
+ghost-doc mock generate [options]      Generate Jest / Vitest / pytest mock files
+ghost-doc mock diff <a> <b>            Compare two sessions for regressions
+ghost-doc mock list                    List saved sessions
 ```
 
 ### `ghost-doc start`
@@ -580,6 +614,44 @@ ghost-doc snapshot
 #   Spans: 342
 ```
 
+### `ghost-doc contract`
+
+```bash
+# Infer contracts for all observed functions
+ghost-doc contract infer
+
+# Infer a single function as YAML
+ghost-doc contract infer --function createOrder --format yaml
+
+# Infer and save to disk
+ghost-doc contract export --function createOrder --format yaml
+
+# Validate Hub spans against a saved contract
+ghost-doc contract validate --contract contracts/createOrder.json
+```
+
+### `ghost-doc mock`
+
+```bash
+# Record current Hub spans as a named session
+ghost-doc mock record --name payment-flow
+
+# Replay as an HTTP mock server on port 8080
+ghost-doc mock serve --session payment-flow --mock-port 8080
+
+# Generate a Vitest mock file
+ghost-doc mock generate --session payment-flow --target vitest --output __mocks__/payment.ts
+
+# Generate a pytest fixture file
+ghost-doc mock generate --session payment-flow --target pytest --output mocks/payment.py
+
+# Compare two sessions for regressions (flag latency increases > 20%)
+ghost-doc mock diff baseline new --threshold 20
+
+# List saved sessions
+ghost-doc mock list
+```
+
 ### `ghost-doc share` / `ghost-doc load`
 
 Create a self-contained shareable URL from a saved snapshot:
@@ -623,7 +695,7 @@ Traces are written as NDJSON to `~/.ghost-doc/traces/<timestamp>.jsonl`.
 
 ## Architecture
 
-Ghost Doc is a monorepo with six packages:
+Ghost Doc is a monorepo with seven packages:
 
 ```
 packages/
@@ -631,6 +703,7 @@ packages/
 ├── agent-js          # TypeScript tracing agent (@trace decorator, tracer.wrap)
 ├── agent-python      # Python tracing agent (@tracer.trace decorator)
 ├── hub               # Aggregation server + CLI (Node.js, Fastify, ws)
+├── contractum        # Contract inference, validation, mock generation & session diff
 ├── dashboard         # Real-time web UI (React 18, D3, Zustand, Tailwind, Vite)
 └── exporter          # Export engine (Markdown, HTML, Notion, Obsidian, Confluence)
 ```
@@ -680,16 +753,25 @@ Any process that can open a WebSocket and send JSON can act as a Ghost Doc agent
 
 ## Hub REST API
 
-| Method | Path                | Description                                                       |
-| ------ | ------------------- | ----------------------------------------------------------------- |
-| `GET`  | `/health`           | Server status, connected agent count, total traces                |
-| `GET`  | `/traces`           | Recent spans (`?limit=100&agent_id=frontend`)                     |
-| `GET`  | `/traces/:trace_id` | Full span tree for a distributed trace                            |
-| `POST` | `/snapshot`         | Save current buffer to `~/.ghost-doc/snapshots/`                  |
-| `GET`  | `/snapshots`        | List saved snapshots                                              |
-| `GET`  | `/snapshots/:id`    | Load a specific snapshot by ID                                    |
-| `POST` | `/snapshots/load`   | Push a snapshot body into the Hub and broadcast to all dashboards |
-| `GET`  | `/export`           | Export call graph (`?format=html\|markdown&project=Name`)         |
+| Method   | Path                       | Description                                                       |
+| -------- | -------------------------- | ----------------------------------------------------------------- |
+| `GET`    | `/health`                  | Server status, connected agent count, total traces                |
+| `GET`    | `/traces`                  | Recent spans (`?limit=100&agent_id=frontend`)                     |
+| `GET`    | `/traces/:trace_id`        | Full span tree for a distributed trace                            |
+| `POST`   | `/snapshot`                | Save current buffer to `~/.ghost-doc/snapshots/`                  |
+| `GET`    | `/snapshots`               | List saved snapshots                                              |
+| `GET`    | `/snapshots/:id`           | Load a specific snapshot by ID                                    |
+| `POST`   | `/snapshots/load`          | Push a snapshot body into the Hub and broadcast to all dashboards |
+| `GET`    | `/export`                  | Export call graph (`?format=html\|markdown&project=Name`)         |
+| `GET`    | `/contracts`               | Infer contracts for all functions (`?min_samples=10`)             |
+| `GET`    | `/contracts/:functionName` | Infer contract for a single function                              |
+| `POST`   | `/contracts/validate`      | Validate spans against a contract; returns violations             |
+| `POST`   | `/contracts/save`          | Save an inferred contract to disk                                 |
+| `GET`    | `/contracts/saved`         | List saved contract files                                         |
+| `GET`    | `/mock/sessions`           | List saved mock sessions                                          |
+| `POST`   | `/mock/sessions`           | Create a session from current Hub spans                           |
+| `GET`    | `/mock/sessions/:name`     | Load a full session snapshot                                      |
+| `DELETE` | `/mock/sessions/:name`     | Delete a saved session                                            |
 
 ---
 

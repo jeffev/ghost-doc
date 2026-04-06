@@ -69,7 +69,7 @@ export interface GraphData {
 
 export type PlaybackSpeed = 0.5 | 1 | 2 | 10;
 
-export type ViewMode = "flowchart" | "flamegraph";
+export type ViewMode = "flowchart" | "flamegraph" | "contracts" | "mocks";
 
 export interface TimeTravelState {
   /** null = live mode */

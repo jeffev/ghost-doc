@@ -1,0 +1,47 @@
+{
+  "name": "@ghost-doc/contractum",
+  "version": "0.1.0",
+  "description": "Ghost Doc Contractum & Mock Registry — infer contracts from recorded traces, validate calls at runtime, and replay sessions as mocks.",
+  "keywords": [
+    "contract-testing",
+    "mock",
+    "tracing",
+    "observability",
+    "documentation"
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/jeffev/ghost-doc#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jeffev/ghost-doc.git",
+    "directory": "packages/contractum"
+  },
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --clean",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@ghost-doc/shared-types": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsup": "^8.5.1",
+    "vitest": "^2.0.0"
+  }
+}

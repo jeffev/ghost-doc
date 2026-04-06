@@ -67,6 +67,10 @@ export default defineConfig({
         ],
       },
       {
+        text: "Modules",
+        items: [{ text: "Contractum & Mock Registry", link: "/contractum-mock-registry" }],
+      },
+      {
         text: "Project",
         items: [{ text: "Future Features", link: "/future-features" }],
       },

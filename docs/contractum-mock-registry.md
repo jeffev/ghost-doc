@@ -1,59 +1,118 @@
-# Contractum & Mock Registry — Feature Planning
+# Contractum & Mock Registry
 
-> **Status:** Backlog — not committed to a release timeline.
-> Depends on: Phase 0–4 complete (Hub store, Agent traces, Exporter pipeline).
+Ghost Doc already records everything needed to power contract validation and realistic mock generation: real arguments, real return values, timings, error shapes, and call order. The **Contractum** and **Mock Registry** modules transform Ghost Doc from a passive observer into an active guarantor of correctness.
 
-Ghost Doc already records everything needed to power contract validation and realistic mock generation: real arguments, real return values, timings, error shapes, call order, and distributed trace context. These two modules transform Ghost Doc from a **passive observer** into an **active guarantor of correctness**.
-
----
-
-## Overview
-
-| Module            | What it does                                                                                                                                       |
-| :---------------- | :------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Contractum**    | Infers behavioral contracts from recorded calls. Validates future calls against those contracts. Reports violations in real-time to the Dashboard. |
-| **Mock Registry** | Turns recorded sessions into replayable mocks. Serves them over HTTP or generates static mock files for Jest/Vitest/pytest.                        |
-
-Both modules share the same data source: the Hub's in-memory trace store and saved snapshots.
+| Module            | What it does                                                                                                                                        |
+| :---------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Contractum**    | Infers behavioral contracts (JSON Schema) from recorded calls. Validates future calls against those contracts. Reports violations in the Dashboard. |
+| **Mock Registry** | Turns recorded sessions into replayable mocks. Serves them over HTTP or generates static files for Jest/Vitest/pytest/Postman.                      |
 
 ---
 
-## Phase A — Contractum
+## Dashboard
 
-### A.1 — Contract Inference
+Switch to either tab using the **Contracts** or **Mocks** buttons in the dashboard header.
 
-**Input:** Recorded `TraceEvent[]` from the Hub store.
-**Output:** A JSON Schema describing the expected inputs and output of a function.
+### Contracts tab
 
-```typescript
-// ghostDoc.contract.infer(options?)
-interface InferOptions {
-  functionName?: string; // omit to infer for all traced functions
-  minSamples?: number; // minimum calls required (default: 10)
-  strictTypes?: boolean; // true = exact types; false = union types allowed
-  outputFormat?: "json-schema" | "typescript" | "yaml";
-}
+- **Function list** — every traced function with sample count, confidence score, and coverage-gate indicator.
+- **Live / Saved toggle** — switch between contracts inferred from live spans and contracts previously saved to disk.
+- **Min samples slider** — control the minimum call count required before inference runs (1–50).
+- **Coverage gate slider** — set a threshold; functions below it get an ⚠ badge and a yellow border.
+- **Contract detail** — the inferred JSON Schema for args, return value, and observed error shapes.
+- **Confidence score** — 0–100% badge computed from sample count, type consistency, and format detection.
+- **Pin contract** — lock a contract so Re-infer never overwrites it.
+- **Re-infer** — re-derives the schema from all spans currently in the Hub.
+- **Validate spans** — checks all spans in the Hub against the displayed contract; shows a violation count badge and a detailed feed.
+- **Save** — persists the contract to `~/.ghost-doc/contracts/<functionName>.json`.
+- **Schema tab** — JSON Schema with copy-to-clipboard on hover.
+- **TypeScript tab** — generated TypeScript interfaces + "Download .d.ts" button.
+- **Violations tab** — per-span violation details (path, rule, expected vs. received).
+- **Drift tab** — compares the saved-on-disk contract with the contract inferred from current spans; highlights breaking changes.
+- **Annotations tab** — free-text notes per function, stored in browser localStorage.
 
-const contract = await ghostDoc.contract.infer({
-  functionName: "createOrder",
-  minSamples: 5,
-  outputFormat: "json-schema",
-});
+### Mocks tab
+
+#### Sessions panel
+
+- **Record session** — enter a name and click **Save** to snapshot the Hub's current spans.
+- **Session list** — click any session to load it. Rename (✎), clone (⎘), or delete (✕) inline.
+- **Merge** — click ⊕ to select ≥ 2 sessions and merge them into a new combined session.
+- **Call table** — sequence number, function name, args, return/error value, and duration for every recorded call.
+- **Timeline view** — horizontal bar chart of calls by function; click any bar to open the detail modal.
+- **Call detail modal** — click any row to see the full, non-truncated JSON of args, return, and error.
+- **Function filter** — filter the call table by function name.
+- **Error/Success filter** — show only calls that errored or only successful calls.
+- **Export mocks** — generates and downloads a static mock file (Jest, Vitest, or pytest) entirely in the browser.
+- **OpenAPI ▾** — generates an OpenAPI 3.0 spec (JSON or YAML) from the recorded session.
+- **Postman** — generates a Postman Collection v2.1 JSON with example requests and responses.
+
+#### Diff panel
+
+- **Session diff** — select a baseline and a current session, set a latency threshold, and compare: added/removed functions, changed return shapes, error rate changes, and latency regressions.
+
+#### Server panel
+
+- **HTTP mock server** — Start/Stop a local HTTP server that replays a recorded session.
+- **Session selector** — pick which session to serve.
+- **Port** — default 8080.
+- **Mode** — `exact`, `round-robin`, or `latency-preserving`.
+- **Fault injection** — inject error rate (0–100%) and latency factor (1–10×) for chaos testing.
+
+---
+
+## CLI
+
+### Contract workflow
+
+```bash
+# 1. Infer contracts for all observed functions and print to stdout
+ghost-doc contract infer
+
+# 2. Infer and save a specific function's contract to disk
+ghost-doc contract export --function createOrder --format yaml
+# → ~/.ghost-doc/contracts/createOrder.yaml
+
+# 3. Validate current Hub spans against a saved contract
+ghost-doc contract validate --contract contracts/createOrder.json
 ```
 
-**Inference algorithm (deterministic, no AI):**
+### Mock workflow
+
+```bash
+# 1. Record current Hub spans as a named session
+ghost-doc mock record --name payment-flow
+
+# 2a. Replay the session as an HTTP mock server
+ghost-doc mock serve --session payment-flow --mock-port 8080
+
+# 2b. Generate static test mocks
+ghost-doc mock generate --session payment-flow --target vitest --output __mocks__/payment.ts
+ghost-doc mock generate --session payment-flow --target pytest   --output mocks/payment.py
+
+# 3. Compare two sessions to detect regressions
+ghost-doc mock diff payment-flow-baseline payment-flow-new --threshold 15
+
+# List all saved sessions
+ghost-doc mock list
+```
+
+---
+
+## Contract inference algorithm
+
+Contracts are derived deterministically — no AI is required.
 
 1. Collect all recorded calls for the target function.
-2. For each positional/named argument, inspect `typeof` and prototype chain across all samples.
-3. Build union of observed types (`string | number` if both seen).
-4. Mark a field as `required: true` if present in ≥ 90% of samples.
-5. If a field has ≤ 10 distinct values across all samples → emit as `enum`.
-6. Apply heuristics for common patterns: UUID, email, ISO date, URL → emit as `format` or `pattern`.
+2. For each positional argument, inspect `typeof` and prototype chain across all samples.
+3. Build a union of observed types (`string | number` if both seen).
+4. Mark a field `required` if present in ≥ 90 % of samples.
+5. If a field has ≤ 10 distinct values → emit as `enum`.
+6. Detect common string formats at ≥ 80 % match rate: `uuid`, `email`, `date-time`, `uri`.
 7. Recurse into nested objects and arrays.
-8. Repeat steps 2–7 for the return value.
-9. Wrap everything in a `ContractDefinition` envelope.
+8. Repeat for the return value and observed error shapes.
 
-**ContractDefinition schema:**
+The result is a `ContractDefinition` envelope:
 
 ```typescript
 interface ContractDefinition {
@@ -61,608 +120,167 @@ interface ContractDefinition {
   functionName: string;
   generatedAt: string; // ISO timestamp
   sampleCount: number;
-  args: JSONSchema[]; // one schema per positional arg
+  args: JSONSchema[]; // one schema per positional argument
   returns: JSONSchema;
   errors?: JSONSchema[]; // observed error shapes
 }
 ```
 
----
+### Confidence score
 
-### A.2 — Contract Validation (Runtime)
+The confidence score (0–100%) is computed client-side from three factors:
 
-Intercepts future calls of the target function (already instrumented by the Agent) and compares args/return against the contract schema.
+| Factor           | Weight   | Description                                                                 |
+| :--------------- | :------- | :-------------------------------------------------------------------------- |
+| Sample count     | 0–50 pts | Saturates at 50 samples                                                     |
+| Type consistency | 0–30 pts | Penalises `oneOf` (union) schemas — 5 pts per union                         |
+| Format detection | 0–20 pts | Bonus when at least one field has a detected format (`uuid`, `email`, etc.) |
 
-```typescript
-interface ValidateOptions {
-  onViolation?: (violation: ContractViolation) => void;
-  throwOnViolation?: boolean; // default: false — report only
-  sampleRate?: number; // 0–1, validate only x% of calls (perf guard)
-}
+### Contract drift
 
-ghostDoc.contract.validate(contract, {
-  onViolation: (v) => ghostDoc.report("contract-violation", v),
-});
+The **Drift** tab compares the contract saved on disk with the contract freshly inferred from current spans. Each schema change is classified:
 
-interface ContractViolation {
-  functionName: string;
-  spanId: string;
-  traceId: string;
-  timestamp: number;
-  violations: Array<{
-    path: string; // e.g. "args[0].userId"
-    expected: string; // e.g. "string"
-    received: string; // e.g. "number"
-    rule: "type" | "required" | "enum" | "pattern" | "format";
-  }>;
-}
-```
-
-Violations are emitted to the Hub as a new event type (`contract-violation`) and appear in the Dashboard as alert indicators on the relevant node.
+| Kind               | Breaking? |
+| :----------------- | :-------- |
+| `type_changed`     | Yes       |
+| `required_added`   | Yes       |
+| `field_removed`    | Yes       |
+| `enum_changed`     | Yes       |
+| `required_removed` | No        |
+| `field_added`      | No        |
+| `format_changed`   | No        |
 
 ---
 
-### A.3 — Contract Export & Import
-
-```typescript
-// Export to disk
-await ghostDoc.contract.export("user-service-contract.yaml", "yaml");
-await ghostDoc.contract.export("contracts/", { splitByFunction: true });
-
-// Load external contract (e.g. hand-written or from OpenAPI)
-ghostDoc.contract.load(externalSchema);
-
-// CLI equivalents
-// npx ghost-doc contract infer --function createOrder --out contract.json
-// npx ghost-doc contract validate --contract contract.json --on-violation report
-// npx ghost-doc contract export --format yaml --out contracts/
-```
-
----
-
-### A.4 — Dashboard: Contracts Tab
-
-New tab in the Dashboard alongside Flowchart / Flame Graph:
-
-- **Function list** — each traced function with: inferred contract status (yes/no/loading), violation count (last 24h), last validated timestamp.
-- **Contract detail panel** — shows the full JSON Schema for args and return. Click any field to see observed samples.
-- **Violations feed** — real-time stream of `ContractViolation` events. Click to jump to the span in the inspector.
-- **"Generate Contract" button** — triggers `contract.infer()` from the inspector panel of any function node.
-
----
-
-## Phase B — Mock Registry
-
-### B.1 — Recording Sessions
-
-Ghost Doc already records calls. This phase adds explicit session management:
-
-```typescript
-interface RecordingOptions {
-  functions?: string[]; // restrict to specific function names
-  maxCallsPerFunction?: number; // default: unlimited
-  includeSensitiveFields?: boolean; // default: false (uses existing sanitizer)
-  filter?: (call: TraceEvent) => boolean;
-}
-
-ghostDoc.mock.startRecording("payment-flow", options);
-// ... app runs, calls are captured ...
-const snapshot = await ghostDoc.mock.stopRecording();
-// Saves to ~/.ghost-doc/sessions/payment-flow-<timestamp>.json
-```
-
-**Session snapshot format (YAML):**
-
-```yaml
-session: payment-flow
-startTime: 2026-04-03T10:00:00Z
-endTime: 2026-04-03T10:05:00Z
-calls:
-  - function: createOrder
-    spanId: span_abc
-    traceId: trace_xyz
-    args: [{ userId: "u_123", amount: 99.99 }]
-    return: { orderId: "ord_456", status: "pending" }
-    durationMs: 42
-    error: null
-    sequence: 1
-  - function: processPayment
-    spanId: span_def
-    traceId: trace_xyz
-    args: [{ orderId: "ord_456", method: "credit" }]
-    return: { transactionId: "tx_789" }
-    durationMs: 210
-    error: null
-    sequence: 2
-```
-
-**CLI:**
-
-```bash
-npx ghost-doc mock record --name payment-flow --duration 30s
-npx ghost-doc mock record --name payment-flow --functions createOrder,processPayment
-```
-
----
-
-### B.2 — Mock Server (HTTP Replay)
-
-Serves a saved session as an HTTP API, replaying responses in the recorded order:
-
-```typescript
-interface ServeOptions {
-  mode: "exact" | "round-robin" | "latency-preserving";
-  faultInjection?: {
-    errorRate?: number; // 0–1: fraction of calls that return a recorded error
-    latencyFactor?: number; // e.g. 2.0 = double the recorded latency
-  };
-}
-
-await ghostDoc.mock.serve(8080, "payment-flow", {
-  mode: "exact",
-  faultInjection: { errorRate: 0.05 },
-});
-```
-
-**Mode details:**
+## Mock server modes
 
 | Mode                 | Behavior                                                                |
 | :------------------- | :---------------------------------------------------------------------- |
 | `exact`              | Returns responses in the exact recorded sequence. Cycles on exhaustion. |
-| `round-robin`        | Returns a random response from the recorded set for that function.      |
-| `latency-preserving` | Delays each response by the recorded `durationMs` before responding.    |
+| `round-robin`        | Returns a random response from the set recorded for that function.      |
+| `latency-preserving` | Delays each response by the recorded `durationMs`.                      |
 
-**CLI:**
-
-```bash
-npx ghost-doc mock serve --session payment-flow --port 8080 --mode exact
-npx ghost-doc mock serve --session payment-flow --port 8080 --fault-error-rate 0.1
-```
-
----
-
-### B.3 — Static Mock Generation (Unit Tests)
-
-Generates mock files for test frameworks from a recorded session:
-
-```typescript
-await ghostDoc.mock.generate("payment-flow", "__mocks__/payment.ts", {
-  target: "jest" | "vitest" | "pytest",
-  includeTimings: false,
-  oneCallPerFunction: true, // use first recorded call only
-});
-```
-
-**Jest/Vitest output example:**
-
-```typescript
-// __mocks__/payment.ts — auto-generated by ghost-doc mock generate
-export const mockCreateOrder = vi.fn().mockResolvedValue({
-  orderId: "ord_456",
-  status: "pending",
-});
-
-export const mockProcessPayment = vi.fn().mockResolvedValue({
-  transactionId: "tx_789",
-});
-```
-
-**pytest output example:**
-
-```python
-# __mocks__/payment.py — auto-generated by ghost-doc mock generate
-def mock_create_order(*args, **kwargs):
-    return {"orderId": "ord_456", "status": "pending"}
-
-def mock_process_payment(*args, **kwargs):
-    return {"transactionId": "tx_789"}
-```
-
-**CLI:**
+Fault injection options (available in both the dashboard Server panel and CLI):
 
 ```bash
-npx ghost-doc mock generate --session payment-flow --output ./__mocks__/payment.ts --target jest
-npx ghost-doc mock generate --session payment-flow --output ./mocks/payment.py --target pytest
+--fault-error-rate 0.1    # 10 % of calls return a recorded error response
+--fault-latency 2.0       # double the recorded latency on every call
 ```
 
 ---
 
-### B.4 — Session Diff (Regression Detection)
+## Session diff
 
-Compares two sessions and reports behavioral differences:
+`ghost-doc mock diff` (and the Diff panel in the dashboard) compares two sessions and reports:
 
-```typescript
-const diff = await ghostDoc.mock.diff("payment-old", "payment-new");
-
-interface SessionDiff {
-  addedFunctions: string[];
-  removedFunctions: string[];
-  changedReturnShapes: Array<{
-    function: string;
-    before: JSONSchema;
-    after: JSONSchema;
-  }>;
-  changedErrorRate: Array<{
-    function: string;
-    before: number; // fraction of calls that errored
-    after: number;
-  }>;
-  latencyRegression: Array<{
-    function: string;
-    beforeP95Ms: number;
-    afterP95Ms: number;
-    changePercent: number;
-  }>;
-}
-```
-
-**CLI:**
+- **Added / removed functions** — functions that appear in only one session.
+- **Changed return shapes** — inferred JSON Schema changed between sessions.
+- **Changed error rate** — fraction of calls that errored, per function.
+- **Latency regressions** — functions whose P95 duration increased beyond the threshold (default: 20 %).
 
 ```bash
-npx ghost-doc mock diff payment-old payment-new
-npx ghost-doc mock diff payment-old payment-new --threshold 20  # flag latency regressions > 20%
+ghost-doc mock diff baseline new --threshold 20
+# ⚠  Breaking changes detected.
+#   Latency regressions (>20%):
+#     processPayment  120ms → 195ms (+62.5%)
 ```
 
 ---
 
-### B.5 — Dashboard: Mocks Tab
+## Export formats
 
-New tab in the Dashboard:
-
-- **Session list** — all recorded sessions with start/end time, call count, size.
-- **Per-session detail** — table of calls (function, sequence, duration, error).
-- **"Start Recording" button** — live recording toggle.
-- **"Replay" button** — starts mock server on configurable port.
-- **"Export Mocks" button** — triggers `mock.generate()` for a target framework.
-- **"Compare" button** — opens session diff against another session or the current live data.
+| Format                      | How to access                                       |
+| :-------------------------- | :-------------------------------------------------- |
+| **Jest** mock               | Dashboard → Mocks → Export mocks ▾ → Jest           |
+| **Vitest** mock             | Dashboard → Mocks → Export mocks ▾ → Vitest         |
+| **pytest** fixture          | Dashboard → Mocks → Export mocks ▾ → pytest         |
+| **OpenAPI 3.0 JSON**        | Dashboard → Mocks → OpenAPI ▾ → JSON                |
+| **OpenAPI 3.0 YAML**        | Dashboard → Mocks → OpenAPI ▾ → YAML                |
+| **Postman Collection v2.1** | Dashboard → Mocks → Postman                         |
+| **TypeScript .d.ts**        | Dashboard → Contracts → TypeScript → Download .d.ts |
 
 ---
 
-## Phase C — Cross-Module Integration
-
-### C.1 — Validate Mocks Against Contracts
-
-After generating a mock session, automatically validate that all mocked responses comply with the inferred contract:
-
-```typescript
-const contract = await ghostDoc.contract.infer({ functionName: "createOrder" });
-const calls = await ghostDoc.mock.exportCalls("payment-flow");
-const violations = ghostDoc.contract.validateCalls(calls, contract);
-
-if (violations.length > 0) {
-  ghostDoc.report("mock-contract-mismatch", violations);
-  // Shown as a warning badge on the session in the Mocks tab
-}
-```
-
-This detects cases where a recorded session was captured during a period when the function behaved unusually — the mock would then propagate incorrect behavior into tests.
-
-### C.2 — "Freeze Contract" workflow
-
-One-click workflow from the Dashboard inspector:
-
-1. User clicks a function node → inspector panel opens.
-2. User clicks **"Freeze Contract"**.
-3. Ghost Doc: infers contract from recorded calls → saves to `contracts/<function-name>.json` → activates runtime validation → adds a lock icon to the node.
-4. Future violations are immediately visible in the Dashboard.
-
-### C.3 — CI Integration
+## CI integration
 
 ```bash
-# In CI: validate that the current run's calls comply with the frozen contract
-npx ghost-doc contract validate --contract contracts/ --on-violation exit-1
+# Validate that recorded calls still comply with the frozen contract
+ghost-doc contract validate --contract contracts/createOrder.json
 
-# In CI: diff current session against baseline
-npx ghost-doc mock diff baseline --session current --threshold 20 --on-regression exit-1
+# Detect regressions between a baseline session and a new one
+ghost-doc mock diff baseline current --threshold 20
 ```
+
+Both commands exit with a non-zero code when violations or breaking changes are found, making them suitable for CI gates.
 
 ---
 
-## Implementation Notes
+## REST API
 
-### Data dependencies (already available)
+All endpoints are served by the Hub. See [Hub REST API](./api/hub-rest.md) for the full reference.
 
-| Needed                                          | Source                                             |
-| :---------------------------------------------- | :------------------------------------------------- |
-| Recorded calls (args, returns, errors, timings) | Hub in-memory store + snapshot files               |
-| Call order and parent-child relationships       | `sequence` + `parent_span_id` in `TraceEvent`      |
-| Sanitized values                                | Existing sanitizer layer (Agent + Hub double-pass) |
-| Function metadata (file, line, agent)           | `source` field in `TraceEvent`                     |
+### Contracts
 
-### No new Agent changes needed for Phases A and B
+| Method | Path                             | Description                             |
+| :----- | :------------------------------- | :-------------------------------------- |
+| `GET`  | `/contracts`                     | Infer contracts for all functions       |
+| `GET`  | `/contracts/:functionName`       | Infer contract for one function         |
+| `GET`  | `/contracts/:functionName/drift` | Diff current inferred vs saved contract |
+| `POST` | `/contracts/validate`            | Validate spans; returns violations      |
+| `POST` | `/contracts/save`                | Save inferred contract to disk          |
+| `GET`  | `/contracts/saved`               | List saved contracts                    |
+| `GET`  | `/contracts/saved/:name`         | Load a saved contract                   |
 
-All inference and mock generation works off the already-recorded `TraceEvent[]`. The Agent does not need to be modified — it already captures everything required.
+### Mock sessions
 
-The only Agent change needed for **A.2 (runtime validation)** is a hook to intercept post-call results, which can be added as an optional plugin to the existing `traceFunction` wrapper.
+| Method   | Path                           | Description                         |
+| :------- | :----------------------------- | :---------------------------------- |
+| `GET`    | `/mock/sessions`               | List saved sessions                 |
+| `POST`   | `/mock/sessions`               | Create a session from current spans |
+| `GET`    | `/mock/sessions/:name`         | Load a full session snapshot        |
+| `DELETE` | `/mock/sessions/:name`         | Delete a session                    |
+| `POST`   | `/mock/sessions/:name/clone`   | Clone a session under a new name    |
+| `PATCH`  | `/mock/sessions/:name`         | Rename a session                    |
+| `POST`   | `/mock/sessions/merge`         | Merge multiple sessions into one    |
+| `POST`   | `/mock/sessions/diff`          | Diff two sessions                   |
+| `GET`    | `/mock/sessions/:name/openapi` | Export session as OpenAPI 3.0 spec  |
 
-### Schema inference is deterministic
+### HTTP mock server
 
-No AI is required for the core inference algorithm. The `json-schema` output is derived deterministically from observed types and values. AI (LLM) can be layered on top later to:
-
-- Generate natural-language descriptions of contracts.
-- Detect semantic anomalies (value looks like a UUID but schema says plain string).
-- Suggest contract refinements from failing cases.
-
-### Sensitive data
-
-The mock server and static mock generator operate exclusively on sanitized values (already redacted by the sanitizer before storage). No additional redaction logic is needed.
-
----
-
-## API Surface Summary
-
-| Module     | Method                                   | Description                                      |
-| :--------- | :--------------------------------------- | :----------------------------------------------- |
-| `contract` | `infer(options)`                         | Generate JSON Schema from recorded calls         |
-| `contract` | `validate(contract, options)`            | Validate future calls at runtime                 |
-| `contract` | `validateCalls(calls, contract)`         | Validate a call array (used for mock validation) |
-| `contract` | `export(filename, format)`               | Save contract to disk                            |
-| `contract` | `load(definition)`                       | Load external contract (OpenAPI, hand-written)   |
-| `mock`     | `startRecording(name, options)`          | Begin a named recording session                  |
-| `mock`     | `stopRecording()`                        | End session and save to disk                     |
-| `mock`     | `serve(port, session, options)`          | Start HTTP mock server (replay mode)             |
-| `mock`     | `generate(session, outputFile, options)` | Generate Jest/Vitest/pytest mock file            |
-| `mock`     | `diff(sessionA, sessionB)`               | Compare two sessions for behavioral regressions  |
-| `mock`     | `exportCalls(session)`                   | Return call array for programmatic use           |
+| Method | Path                  | Description                              |
+| :----- | :-------------------- | :--------------------------------------- |
+| `GET`  | `/mock/server/status` | Check if the mock server is running      |
+| `POST` | `/mock/server/start`  | Start the HTTP mock server for a session |
+| `POST` | `/mock/server/stop`   | Stop the running HTTP mock server        |
 
 ---
 
-## Dependency on Existing Roadmap
+## Storage
 
-```
-Phase 2 (Hub — in-memory store, snapshots)
-    └── Phase A (Contractum — reads from store)
-    └── Phase B (Mock Registry — reads from store)
-            └── Phase C (Integration — A + B together)
-                    └── Phase 5 (Hardening — security + perf for new surface)
-```
+| Artifact  | Location                  | Format                   |
+| :-------- | :------------------------ | :----------------------- |
+| Contracts | `~/.ghost-doc/contracts/` | JSON / YAML / TypeScript |
+| Sessions  | `~/.ghost-doc/sessions/`  | JSON                     |
 
-Phases A and B are **independent** and can be developed in parallel.
-Phase C requires both A and B to be at least partially complete.
+The storage directory can be overridden in `~/.ghost-doc/config.json` via the `storageDir` key.
 
 ---
 
-## Phase D — Future Features (Backlog)
+## Backlog
 
-> These are not committed to any release. Listed for planning purposes.
+The following features are planned but not yet committed to a release:
 
----
-
-### D.1 — Consumer-Driven Contract Testing (Contractum)
-
-Multiple consumers declare what they expect from a provider. Contractum validates that the provider satisfies all consumers — using already-recorded traces, without separate infrastructure.
-
-```typescript
-ghostDoc.contract.defineConsumer("checkout-service", {
-  expects: "createOrder",
-  requiredFields: ["orderId", "status"],
-  allowedStatuses: ["pending", "confirmed"],
-});
-
-const report = await ghostDoc.contract.verifyConsumers("createOrder");
-// Reports which consumers are satisfied or broken
-```
-
-**CLI:**
-
-```bash
-npx ghost-doc contract verify-consumers --function createOrder
-```
+- **D.1** Consumer-driven contract testing (multiple consumers declare expectations against one provider)
+- **D.2** Invariant rules / negative contracts (`args[0].amount > 0`)
+- **D.3** ~~Contract drift tracking~~ ✅ implemented
+- **D.4** ~~Contract confidence score~~ ✅ implemented
+- **D.5** Scenario-based mocks (activate named override scenarios without separate session files)
+- **D.6** Stateful mocks (responses that evolve with call state)
+- **D.7** ~~OpenAPI / AsyncAPI export~~ ✅ implemented
+- **D.8** Mock warming — generate synthetic but schema-valid calls when no recording exists
+- **D.9** Distributed contract validation (cross-service contract checks via `traceId`)
+- **D.10** Coverage gate — ✅ implemented (dashboard slider + per-function badge)
 
 ---
 
-### D.2 — Invariant Rules / Negative Contracts (Contractum)
-
-Complements the type schema with rules that must _never_ be true, regardless of type. Evaluated at the same point as runtime validation (A.2).
-
-```typescript
-ghostDoc.contract.addInvariant("processPayment", {
-  rule: "args[0].amount > 0",
-  description: "Amount must be positive",
-  severity: "error",
-});
-
-ghostDoc.contract.addInvariant("createOrder", {
-  rule: '!return.orderId.startsWith("test_")',
-  description: "No test IDs in production",
-  severity: "warning",
-});
-```
-
-Violations emit the same `ContractViolation` event as A.2, with `rule: 'invariant'`.
-
----
-
-### D.3 — Contract Drift Tracking (Contractum)
-
-Automatically snapshots inferred contracts on each deploy or recording session. Detects when the schema has drifted relative to a baseline:
-
-```
-Function: createOrder
-  args[0].currency   → NEW field (not in baseline contract)
-  return.eta         → REMOVED field
-  return.status      → enum expanded: added "processing"
-```
-
-Dashboard shows a timeline of contract drift per function. Integrates with CI via:
-
-```bash
-npx ghost-doc contract drift --baseline contracts/baseline/ --on-breaking exit-1
-```
-
----
-
-### D.4 — Contract Confidence Score (Contractum)
-
-Each contract exposes a score (0–100) based on: sample count, type variance across samples, error scenario coverage, and field presence consistency. Low-confidence contracts are flagged in the Dashboard as "fragile" and excluded from CI gates until the score reaches a configurable threshold.
-
-```typescript
-interface ContractDefinition {
-  // ... existing fields ...
-  confidence: {
-    score: number; // 0–100
-    factors: {
-      sampleCount: number;
-      typeVariance: number; // 0 = fully consistent, 1 = maximally varied
-      errorCoverage: number; // fraction of functions with at least one error sample
-    };
-    verdict: "strong" | "acceptable" | "fragile";
-  };
-}
-```
-
----
-
-### D.5 — Scenario-Based Mocks (Mock Registry)
-
-Groups calls into named, activatable scenarios without requiring separate sessions. Scenarios override specific function responses while keeping everything else from the base session.
-
-```typescript
-ghostDoc.mock.defineScenario("payment-flow", "timeout", {
-  override: {
-    processPayment: {
-      error: { code: "TIMEOUT", message: "Gateway timed out" },
-      durationMs: 30000,
-    },
-  },
-});
-
-ghostDoc.mock.defineScenario("payment-flow", "happy-path", {
-  override: {}, // no overrides — uses recorded responses as-is
-});
-
-// In tests:
-ghostDoc.mock.activateScenario("payment-flow", "timeout");
-```
-
-**CLI:**
-
-```bash
-npx ghost-doc mock serve --session payment-flow --scenario timeout --port 8080
-```
-
----
-
-### D.6 — Stateful Mocks (Mock Registry)
-
-Mock responses that evolve with state — the response depends on prior calls within the same session. Useful for testing polling loops, async flows, and multi-step processes.
-
-```yaml
-# In session definition:
-- function: getOrderStatus
-  stateMachine:
-    initial: pending
-    responses:
-      pending: { status: "pending" }
-      confirmed: { status: "confirmed" }
-      shipped: { status: "shipped", trackingUrl: "https://..." }
-    transitions:
-      - after: 2000ms → confirmed
-      - after: 10000ms → shipped
-```
-
-```typescript
-await ghostDoc.mock.serve(8080, "payment-flow", {
-  mode: "stateful",
-  resetStateOnRestart: true,
-});
-```
-
----
-
-### D.7 — OpenAPI / AsyncAPI Export (Mock Registry)
-
-Exports a recorded session as an OpenAPI 3.1 spec (REST) or AsyncAPI 2.x spec (events/WebSocket), bridging Ghost Doc with API gateways, documentation tools, and client generators.
-
-```bash
-npx ghost-doc mock export --session payment-flow --format openapi  --out openapi.yaml
-npx ghost-doc mock export --session events-flow  --format asyncapi --out asyncapi.yaml
-```
-
-```typescript
-await ghostDoc.mock.exportSpec("payment-flow", {
-  format: "openapi" | "asyncapi",
-  outputFile: "openapi.yaml",
-  baseUrl: "https://api.example.com",
-});
-```
-
----
-
-### D.8 — Mock Warming / Synthetic Data Generation (Mock Registry)
-
-When no recorded session exists (or the sample count is insufficient), generates synthetic but schema-valid calls derived from the inferred contract. Useful for bootstrapping a mock server before any real traffic has been captured.
-
-```typescript
-await ghostDoc.mock.warm("createOrder", {
-  from: "contract", // uses inferred contract as schema
-  count: 50, // generate 50 synthetic calls
-  saveAs: "synthetic-orders", // store as a regular session
-  seed: 42, // deterministic output
-});
-```
-
-Synthetic values respect all inferred constraints: `enum` values, `format` hints (UUID, email, ISO date), required fields, and nested object shapes.
-
----
-
-### D.9 — Distributed Contract Validation (Cross-Module)
-
-Uses the shared `traceId` to validate cross-service calls. Each service publishes its contract to the Hub; when `ServiceA` calls `ServiceB`, the Hub automatically validates the outgoing args and incoming response against `ServiceB`'s published contract.
-
-```typescript
-// ServiceB registers its contract with the Hub
-ghostDoc.contract.publish("createOrder", contract, { public: true });
-
-// ServiceA — no code changes needed; Hub validates via trace context
-// Violations appear in the Dashboard attributed to the calling span
-```
-
-Requires Hub 2.x multi-agent support (already on the roadmap).
-
----
-
-### D.10 — Coverage Gate (CI Integration)
-
-Blocks CI if a function with an active contract has fewer than N recorded samples in the current session — prevents contracts inferred from insufficient data from reaching production.
-
-```bash
-npx ghost-doc contract coverage --min-samples 20 --on-insufficient exit-1
-```
-
-```typescript
-interface CoverageReport {
-  functions: Array<{
-    name: string;
-    sampleCount: number;
-    hasContract: boolean;
-    verdict: "sufficient" | "insufficient" | "no-contract";
-  }>;
-  totalInsufficient: number;
-}
-```
-
-Also surfaced in the Dashboard's Contracts tab as a coverage indicator per function.
-
----
-
-### Phase D — Priority Matrix
-
-| Feature                     | Value  | Complexity | Depends on   |
-| :-------------------------- | :----- | :--------- | :----------- |
-| D.4 — Confidence Score      | Medium | Low        | A.1          |
-| D.2 — Invariant Rules       | High   | Low        | A.2          |
-| D.5 — Scenario Mocks        | High   | Medium     | B.1–B.2      |
-| D.7 — OpenAPI Export        | Medium | Low        | B.1          |
-| D.10 — Coverage Gate        | Medium | Low        | A.1, C.3     |
-| D.3 — Contract Drift        | Medium | Medium     | A.1, A.3     |
-| D.8 — Mock Warming          | Medium | Medium     | A.1, B.1     |
-| D.6 — Stateful Mocks        | High   | High       | B.2          |
-| D.1 — Consumer-Driven       | High   | High       | A.1–A.2      |
-| D.9 — Distributed Contracts | High   | High       | C.1, Hub 2.x |
-
-Low-complexity, high-value candidates to prioritize: **D.2**, **D.4**, **D.5**, **D.7**, **D.10**.
-
----
-
-_Created: 2026-04-03 — Future features added: 2026-04-03_
+_Last updated: 2026-04-06_

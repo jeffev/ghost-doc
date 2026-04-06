@@ -112,6 +112,422 @@ GET /export?format=html&project=MyApp
 
 **Response:** The raw document content with the appropriate `Content-Type` (`text/html` or `text/markdown`). The browser triggers a file download when accessed via the dashboard UI.
 
+---
+
+## Contracts
+
+### `GET /contracts`
+
+Infers contracts for all functions that have at least `min_samples` recorded calls.
+
+**Query parameters:**
+
+| Parameter     | Type   | Default | Description                          |
+| :------------ | :----- | :------ | :----------------------------------- |
+| `min_samples` | number | `10`    | Minimum call count required to infer |
+| `strict`      | bool   | `false` | `true` = no union types in inference |
+
+**Response:** Array of `ContractDefinition` objects, sorted by `functionName`.
+
+```json
+[
+  {
+    "version": "1.0",
+    "functionName": "createOrder",
+    "generatedAt": "2026-04-05T10:00:00.000Z",
+    "sampleCount": 42,
+    "args": [
+      {
+        "type": "object",
+        "properties": { "userId": { "type": "string", "format": "uuid" } },
+        "required": ["userId"]
+      }
+    ],
+    "returns": {
+      "type": "object",
+      "properties": {
+        "orderId": { "type": "string" },
+        "status": { "enum": ["pending", "confirmed"] }
+      }
+    },
+    "errors": [{ "type": "object", "properties": { "code": { "enum": ["OUT_OF_STOCK"] } } }]
+  }
+]
+```
+
+### `GET /contracts/:functionName`
+
+Infers (or re-infers) a contract for a single function.
+
+**Query parameters:** same as `GET /contracts`.
+
+**Response:** A single `ContractDefinition` object (HTTP 404 if no spans found for the function).
+
+### `POST /contracts/validate`
+
+Validates recorded spans against a given contract and returns all violations.
+
+**Request body:**
+
+```json
+{
+  "contract": { ...ContractDefinition },
+  "spans": [ ...StoredSpan ]
+}
+```
+
+`spans` is optional — if omitted, the Hub uses all spans currently in the in-memory store for the contract's `functionName`.
+
+**Response:**
+
+```json
+{
+  "violations": [
+    {
+      "functionName": "createOrder",
+      "spanId": "span-abc",
+      "traceId": "trace-xyz",
+      "timestamp": 1712300000000,
+      "violations": [
+        { "path": "args[0].amount", "expected": "number", "received": "string", "rule": "type" }
+      ]
+    }
+  ],
+  "count": 1
+}
+```
+
+### `POST /contracts/save`
+
+Saves an inferred contract to `~/.ghost-doc/contracts/`.
+
+**Request body:**
+
+```json
+{
+  "contract": { ...ContractDefinition },
+  "format": "json"
+}
+```
+
+`format` accepts `"json"`, `"yaml"`, or `"typescript"`. Defaults to `"json"`.
+
+**Response:**
+
+```json
+{ "path": "/Users/you/.ghost-doc/contracts/createOrder.json" }
+```
+
+### `GET /contracts/saved`
+
+Lists all contract files saved to disk.
+
+**Response:**
+
+```json
+[{ "name": "createOrder.json", "file": "createOrder.json" }]
+```
+
+### `GET /contracts/saved/:name`
+
+Loads a saved contract file by name (with or without `.json` extension).
+
+**Response:** `ContractDefinition` object.
+
+### `GET /contracts/:functionName/drift`
+
+Compares the contract saved on disk for `functionName` with the contract freshly inferred from current Hub spans. Returns a structured diff.
+
+**Query parameters:**
+
+| Parameter     | Type   | Default | Description                           |
+| :------------ | :----- | :------ | :------------------------------------ |
+| `min_samples` | number | `1`     | Minimum samples for current inference |
+
+**Response:**
+
+```json
+{
+  "functionName": "createOrder",
+  "isBreaking": true,
+  "changes": [
+    {
+      "path": "args[0].amount",
+      "kind": "type_changed",
+      "before": "number",
+      "after": ["number", "string"]
+    }
+  ],
+  "saved": { ...ContractDefinition },
+  "current": { ...ContractDefinition }
+}
+```
+
+**Change kinds:**
+
+| Kind               | Breaking |
+| :----------------- | :------- |
+| `type_changed`     | Yes      |
+| `required_added`   | Yes      |
+| `field_removed`    | Yes      |
+| `enum_changed`     | Yes      |
+| `required_removed` | No       |
+| `field_added`      | No       |
+| `format_changed`   | No       |
+
+Returns HTTP 404 if no saved contract exists for the function.
+
+---
+
+## Mock sessions
+
+### `GET /mock/sessions`
+
+Lists all saved session files from `~/.ghost-doc/sessions/`.
+
+**Response:**
+
+```json
+[
+  {
+    "name": "payment-flow",
+    "session": "payment-flow",
+    "callCount": 12,
+    "startTime": "2026-04-05T10:00:00.000Z",
+    "endTime": "2026-04-05T10:05:00.000Z"
+  }
+]
+```
+
+### `POST /mock/sessions`
+
+Creates a new session from the Hub's current in-memory spans and saves it to disk.
+
+**Request body:**
+
+```json
+{
+  "name": "payment-flow",
+  "functions": ["createOrder", "processPayment"],
+  "maxCallsPerFunction": 50
+}
+```
+
+`functions` and `maxCallsPerFunction` are optional. Omitting `functions` includes all traced functions.
+
+**Response:**
+
+```json
+{ "name": "payment-flow", "path": "...", "callCount": 12 }
+```
+
+### `GET /mock/sessions/:name`
+
+Loads the full session snapshot for a given session name.
+
+**Response:** `SessionSnapshot` object:
+
+```json
+{
+  "session": "payment-flow",
+  "startTime": "2026-04-05T10:00:00.000Z",
+  "endTime": "2026-04-05T10:05:00.000Z",
+  "calls": [
+    {
+      "function": "createOrder",
+      "spanId": "span-abc",
+      "traceId": "trace-xyz",
+      "args": [{ "userId": "u_123", "amount": 99.99 }],
+      "return": { "orderId": "ord_456", "status": "pending" },
+      "durationMs": 42,
+      "error": null,
+      "sequence": 1
+    }
+  ]
+}
+```
+
+### `DELETE /mock/sessions/:name`
+
+Deletes a saved session file from disk.
+
+**Response:** `{ "deleted": "payment-flow-1712300000000.json" }`
+
+### `POST /mock/sessions/:name/clone`
+
+Clones an existing session under a new name.
+
+**Request body:**
+
+```json
+{ "name": "payment-flow-copy" }
+```
+
+**Response:**
+
+```json
+{ "name": "payment-flow-copy-1712300000000", "session": "payment-flow-copy", "callCount": 12 }
+```
+
+### `PATCH /mock/sessions/:name`
+
+Renames an existing session. The old file is deleted and a new one is created.
+
+**Request body:**
+
+```json
+{ "name": "payment-flow-v2" }
+```
+
+**Response:**
+
+```json
+{ "name": "payment-flow-v2-1712300000000", "session": "payment-flow-v2" }
+```
+
+### `POST /mock/sessions/merge`
+
+Merges two or more sessions into a new combined session. Calls are re-sequenced in chronological order.
+
+**Request body:**
+
+```json
+{
+  "sessions": ["payment-flow-a", "payment-flow-b"],
+  "name": "payment-flow-merged"
+}
+```
+
+**Response:**
+
+```json
+{ "name": "payment-flow-merged-1712300000000", "session": "payment-flow-merged", "callCount": 24 }
+```
+
+### `POST /mock/sessions/diff`
+
+Compares two sessions and returns a structured diff.
+
+**Request body:**
+
+```json
+{
+  "before": "payment-flow-baseline",
+  "after": "payment-flow-new",
+  "threshold": 20
+}
+```
+
+`threshold` is the minimum latency increase (%) to flag as a regression. Default: `0`.
+
+**Response:**
+
+```json
+{
+  "diff": {
+    "addedFunctions": ["refundOrder"],
+    "removedFunctions": [],
+    "changedReturnShapes": [
+      { "function": "createOrder", "before": { ... }, "after": { ... } }
+    ],
+    "changedErrorRate": [],
+    "latencyRegression": [
+      { "function": "processPayment", "beforeP95Ms": 120, "afterP95Ms": 195, "changePercent": 62.5 }
+    ]
+  },
+  "breaking": true,
+  "before": "payment-flow-baseline",
+  "after": "payment-flow-new",
+  "threshold": 20
+}
+```
+
+### `GET /mock/sessions/:name/openapi`
+
+Generates an OpenAPI 3.0 specification from a recorded session. Each function becomes a `POST` endpoint with recorded examples.
+
+**Query parameters:**
+
+| Parameter | Type   | Default | Description      |
+| :-------- | :----- | :------ | :--------------- |
+| `format`  | string | `json`  | `json` or `yaml` |
+
+**Response:** OpenAPI 3.0 spec as JSON (default) or YAML (`Content-Type: text/yaml`).
+
+---
+
+## HTTP mock server
+
+### `GET /mock/server/status`
+
+Returns the current state of the HTTP mock server.
+
+**Response:**
+
+```json
+{ "running": false }
+```
+
+or when running:
+
+```json
+{
+  "running": true,
+  "url": "http://127.0.0.1:8080",
+  "session": "payment-flow",
+  "port": 8080,
+  "mode": "exact"
+}
+```
+
+### `POST /mock/server/start`
+
+Starts an HTTP mock server that replays a saved session. Only one server can run at a time.
+
+**Request body:**
+
+```json
+{
+  "session": "payment-flow",
+  "port": 8080,
+  "mode": "exact",
+  "faultErrorRate": 0.1,
+  "faultLatency": 2.0
+}
+```
+
+| Field            | Type   | Default   | Description                                           |
+| :--------------- | :----- | :-------- | :---------------------------------------------------- |
+| `session`        | string | —         | Session name (required)                               |
+| `port`           | number | `8080`    | Port to listen on                                     |
+| `mode`           | string | `"exact"` | `exact` \| `round-robin` \| `latency-preserving`      |
+| `faultErrorRate` | number | —         | Fraction (0–1) of calls that return an error response |
+| `faultLatency`   | number | —         | Latency multiplier applied to recorded durations      |
+
+**Response:**
+
+```json
+{
+  "running": true,
+  "url": "http://127.0.0.1:8080",
+  "session": "payment-flow",
+  "port": 8080,
+  "mode": "exact"
+}
+```
+
+Returns HTTP 409 if a server is already running.
+
+### `POST /mock/server/stop`
+
+Stops the running HTTP mock server.
+
+**Response:** `{ "stopped": true }`
+
+Returns HTTP 404 if no server is running.
+
+---
+
 ## WebSocket endpoints
 
 | Endpoint                        | Direction       | Description                                             |

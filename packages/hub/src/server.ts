@@ -14,6 +14,7 @@ import { AnomalyDetector, buildSpanTree } from "./correlator.js";
 import { buildKeySet, sanitizeSpan } from "./sanitize.js";
 import { TraceStore, type StoredSpan } from "./store.js";
 import { buildGraph, buildHtmlDoc, buildMarkdownDoc } from "@ghost-doc/exporter";
+import { registerContractumRoutes } from "./contractum-routes.js";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -143,6 +144,7 @@ export class GhostDocHub {
 
     this.registerStaticFiles();
     this.registerRoutes();
+    registerContractumRoutes(this.fastify, this.store, this.config.storageDir);
   }
 
   // ---------------------------------------------------------------------------

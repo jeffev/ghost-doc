@@ -5,6 +5,8 @@ import { Flowchart } from "./components/Flowchart/Flowchart.js";
 import { FlameGraph } from "./components/FlameGraph/FlameGraph.js";
 import { Inspector } from "./components/Inspector/Inspector.js";
 import { Timeline } from "./components/Timeline/Timeline.js";
+import { ContractsTab } from "./components/Contracts/ContractsTab.js";
+import { MocksTab } from "./components/Mocks/MocksTab.js";
 import type { GraphData } from "./store/types.js";
 
 /**
@@ -22,15 +24,29 @@ export function App(): JSX.Element {
   const viewMode = useDashboardStore((s) => s.viewMode);
   const graph = useDashboardStore((s) => s.graph);
 
+  const isGraphView = viewMode === "flowchart" || viewMode === "flamegraph";
+
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden">
       <Header />
-      <StatsBar graph={graph} />
+      {isGraphView && <StatsBar graph={graph} />}
       <div className="flex flex-1 overflow-hidden">
-        {viewMode === "flowchart" ? <Flowchart /> : <FlameGraph />}
-        <Inspector />
+        {viewMode === "flowchart" && (
+          <>
+            <Flowchart />
+            <Inspector />
+          </>
+        )}
+        {viewMode === "flamegraph" && (
+          <>
+            <FlameGraph />
+            <Inspector />
+          </>
+        )}
+        {viewMode === "contracts" && <ContractsTab />}
+        {viewMode === "mocks" && <MocksTab />}
       </div>
-      <Timeline />
+      {isGraphView && <Timeline />}
     </div>
   );
 }

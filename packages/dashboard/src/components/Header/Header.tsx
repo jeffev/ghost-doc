@@ -271,6 +271,13 @@ const STATUS_CONFIG = {
 // View mode toggle
 // ---------------------------------------------------------------------------
 
+const VIEW_TABS: { mode: ViewMode; label: string; title: string }[] = [
+  { mode: "flowchart", label: "Flow", title: "Flowchart view" },
+  { mode: "flamegraph", label: "Flame", title: "Flame graph view" },
+  { mode: "contracts", label: "Contracts", title: "Contract inference & validation" },
+  { mode: "mocks", label: "Mocks", title: "Mock session recording & replay" },
+];
+
 function ViewToggle({
   viewMode,
   onSelect,
@@ -280,28 +287,18 @@ function ViewToggle({
 }): JSX.Element {
   return (
     <div className="flex rounded overflow-hidden border border-border text-xs">
-      <button
-        onClick={() => onSelect("flowchart")}
-        className={`px-2.5 py-1 transition-colors ${
-          viewMode === "flowchart"
-            ? "bg-accent text-white"
-            : "bg-canvas text-gray-400 hover:bg-border"
-        }`}
-        title="Flowchart view"
-      >
-        Flow
-      </button>
-      <button
-        onClick={() => onSelect("flamegraph")}
-        className={`px-2.5 py-1 transition-colors border-l border-border ${
-          viewMode === "flamegraph"
-            ? "bg-accent text-white"
-            : "bg-canvas text-gray-400 hover:bg-border"
-        }`}
-        title="Flame graph view"
-      >
-        Flame
-      </button>
+      {VIEW_TABS.map(({ mode, label, title }, i) => (
+        <button
+          key={mode}
+          onClick={() => onSelect(mode)}
+          title={title}
+          className={`px-2.5 py-1 transition-colors ${i > 0 ? "border-l border-border" : ""} ${
+            viewMode === mode ? "bg-accent text-white" : "bg-canvas text-gray-400 hover:bg-border"
+          }`}
+        >
+          {label}
+        </button>
+      ))}
     </div>
   );
 }

@@ -47,6 +47,14 @@ features:
   - icon: 📤
     title: Export anywhere
     details: Download HTML or Markdown directly from the dashboard, or export to Notion, Obsidian, and Confluence via the CLI. One click, zero configuration.
+
+  - icon: 📋
+    title: Contract inference & drift
+    details: Automatically derive JSON Schema contracts from recorded calls. Validate future calls, track confidence scores, pin contracts, detect drift between deploys, and annotate behavior — all from the Contracts tab.
+
+  - icon: 🎭
+    title: Mock registry
+    details: Turn any recording session into ready-to-use Jest, Vitest, pytest, or Postman mocks. Export OpenAPI 3.0 specs. Clone, rename, and merge sessions. Replay as a live HTTP server with fault injection — or diff two sessions to catch regressions before they ship.
 ---
 
 ## How it works
